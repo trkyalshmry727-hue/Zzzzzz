@@ -777,6 +777,7 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 #gPanel>span>u{position:absolute;left:0;right:0;top:100%;text-align:center;text-decoration:none;font-size:calc(.95*var(--s));font-weight:700;color:#fff;opacity:.85;white-space:nowrap;margin-top:1px}
 .fcam{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(1.6*var(--s));display:flex;gap:6px;align-items:center;background:rgba(10,10,12,.6);padding:4px 8px;border-radius:8px;pointer-events:auto}
 .fcam small{font-size:calc(1*var(--s));opacity:.8;max-width:calc(26*var(--s))}
+#perfBox{top:calc(15.6*var(--s))}
 </style>
 </head>
 <body>
@@ -9745,7 +9746,7 @@ class Vehicle {
     let sa = this.steerIn * maxA;
     if (inp.assist) {
       // at speed a real driver only needs a few degrees: wheel angle for ~0.9 g plus the tyre's slip angle
-      const lim = this.drifting ? maxA * clamp(1 - spd / 38, 0.32, 1) : Math.min(maxA, Math.max(maxA * 0.035, this.L * 6 / Math.max(spd * spd, 1) + 0.012));
+      const lim = this.drifting ? maxA * clamp(1 - spd / 38, 0.32, 1) : Math.min(maxA, this.hajwala ? Math.max(maxA * 0.16, this.L * 16 / Math.max(spd * spd, 1) + 0.06) : Math.max(maxA * 0.035, this.L * 6 / Math.max(spd * spd, 1) + 0.012));
       // allow full lock when counter-steering a slide
       const bodySlip = Math.atan2(vL, Math.max(spd, 2));
       const counter = Math.sign(sa) === Math.sign(bodySlip) && Math.abs(bodySlip) > 0.12;
@@ -11195,7 +11196,8 @@ class CarView {
     this.bodyHolder.add(m); this.sticker = m;
   }
   // seen from the driver's seat: clear glass without the mirror-like reflections, so the road is easy to see
-  setInside(on) { const prev = this._inside; if (prev === on) return; this._inside = on; if (!on && prev !== true) return;
+  setInside(on) {
+    if (on && !this._dbl) { this._dbl = true; this.bodyHolder.traverse(o => { if (o.isMesh && o.material) for (const m of (Array.isArray(o.material) ? o.material : [o.material])) if (m.side !== THREE.DoubleSide && !m.transparent) { m.side = THREE.DoubleSide; m.needsUpdate = true; } }); } const prev = this._inside; if (prev === on) return; this._inside = on; if (!on && prev !== true) return;
     for (const m of this.glassMats) { const u = m.userData; if (u.ei0 === undefined) u.ei0 = m.envMapIntensity;
       if (on) { u.opIn = m.opacity; m.opacity = Math.min(m.opacity, .1); m.envMapIntensity = .06; } else { if (u.opIn !== undefined) m.opacity = u.opIn; m.envMapIntensity = u.ei0; } } }
   // side and rear-view mirrors: a small camera looking back, drawn on the mirror glass (only while you sit inside)
@@ -11727,13 +11729,17 @@ const Net = {
       if (B && RB && Math.abs(P.px - fv.px) < 7 && Math.abs(P.pz - fv.pz) < 7 && Math.abs((P.py || 0) - (fv.py || 0)) < 2) {
         const co = Math.cos(P.yaw), si = Math.sin(P.yaw), rc = Math.cos(fv.yaw), rs = Math.sin(fv.yaw), hw = RB.hw || 1, hf = (RB.f || 2.4) - (R.fake.cgZ || 0), hr = (RB.r || -2.4) - (R.fake.cgZ || 0);
         const vxo = (b.x - a.x) / Math.max(.05, (b.t - a.t) / 1000), vzo = (b.z - a.z) / Math.max(.05, (b.t - a.t) / 1000); let hit = 0;
-        // box against box: centres in the other car's frame, push out along the side with the least overlap
-        const cA = (B.f + B.r) / 2, hlA = (B.f - B.r) / 2, cB = (hf + hr) / 2, hlB = (hf - hr) / 2;
+        // two boxes, tested on all four sides (exact for any angle), pushed out along the smallest overlap
+        const cA = (B.f + B.r) / 2, hlA = (B.f - B.r) / 2 - .05, hwA = B.hw - .1, cB = (hf + hr) / 2, hlB = (hf - hr) / 2 - .05, hwB = hw - .1;
         const ax = P.px + si * cA, az = P.pz + co * cA, bx = fv.px + rs * cB, bz = fv.pz + rc * cB, dx = ax - bx, dz = az - bz;
-        const ox = dx * rc - dz * rs, oz = dx * rs + dz * rc, D = P.yaw - fv.yaw, cd = Math.abs(Math.cos(D)), sd = Math.abs(Math.sin(D));
-        const ovX = cd * B.hw + sd * hlA + hw - Math.abs(ox), ovZ = sd * B.hw + cd * hlA + hlB - Math.abs(oz);
-        if (ovX > 0 && ovZ > 0) { let nx, nz, pen;
-          if (ovX < ovZ) { const sx = Math.sign(ox) || 1; nx = sx * rc; nz = -sx * rs; pen = ovX; } else { const sz = Math.sign(oz) || 1; nx = sz * rs; nz = sz * rc; pen = ovZ; }
+        const axes = [[co, -si], [si, co], [rc, -rs], [rs, rc]], A1 = [[co, -si], [si, co]], B1 = [[rc, -rs], [rs, rc]];
+        let best = 1e9, nx = 0, nz = 0;
+        for (const [ux, uz] of axes) {
+          const pa = hwA * Math.abs(A1[0][0] * ux + A1[0][1] * uz) + hlA * Math.abs(A1[1][0] * ux + A1[1][1] * uz);
+          const pb = hwB * Math.abs(B1[0][0] * ux + B1[0][1] * uz) + hlB * Math.abs(B1[1][0] * ux + B1[1][1] * uz);
+          const dd = dx * ux + dz * uz, ov = pa + pb - Math.abs(dd);
+          if (ov <= 0) { best = -1; break; } if (ov < best) { best = ov; const sg = dd >= 0 ? 1 : -1; nx = ux * sg; nz = uz * sg; } }
+        if (best > 0) { const pen = best;
           P.px += nx * pen; P.pz += nz * pen;
           const vn = (P.vx - (isFinite(vxo) ? vxo : 0)) * nx + (P.vz - (isFinite(vzo) ? vzo : 0)) * nz;
           if (vn < 0) { P.vx -= 1.3 * vn * nx * .6; P.vz -= 1.3 * vn * nz * .6; P.r += (Math.random() - .5) * Math.min(1.2, -vn * .06); hit = -vn; } }
@@ -11960,10 +11966,17 @@ const Relay = {
         else if (d.t === 'room' && done) { this.room.n = (d.players || []).length; Net.emit('room', { players: d.players }); }
         else if (d.t === 'end' && done) { UI.toast('صاحب السيرفر قفله', 3000); this.close(true); Net.leaveLocal(); } }));
       this.offs.push(this.on('r/' + code + '/s', d => { if (d && d.i !== Net.me.id) Net.onState([d]); }));
+      this.offs.push(this.on('r/' + code + '/t', d => this.onTraffic(d)));
       setTimeout(hello, 350); let tries = 0; this.hiT = setInterval(() => { if (!this.room) return; if (!done) { if (++tries % 2 === 0) hello(); } else if (++tries % 5 === 0) hello(); }, 1600);   // until the host answers, then now and then so the host knows we're here
     }));
   },
-  sendState(d) { const R = this.room; if (!R || !this.ok) return; this.pub('r/' + R.code + '/s', Object.assign({ i: Net.me.id }, d)); },
+  sendState(d) { const R = this.room; if (!R || !this.ok) return; this.pub('r/' + R.code + '/s', Object.assign({ i: Net.me.id }, d));
+    const W = Game.world, now = performance.now();
+    if (R.host && W && W.traffic && now - (this._trT || 0) > 1000) { this._trT = now; this.pub('r/' + R.code + '/t', { m: W.mapId || 'highway', c: W.traffic.map(c => [Math.round(c.z * 10) / 10, Math.round(c.v * 10) / 10, c.lane, c.dir]), j: W.jam ? [W.jam.dir, Math.round(W.jam.z0), Math.round(W.jam.z1), Math.round(W.jam.t)] : 0 }); } },
+  onTraffic(d) { const W = Game.world; if (!d || !W || !W.traffic || (W.mapId || 'highway') !== d.m || this.room && this.room.host) return;
+    d.c.forEach((t, i) => { const c = W.traffic[i]; if (!c) return; if (c.lane !== t[2] || c.dir !== t[3]) { c.lane = t[2]; c.dir = t[3]; c.x = -c.dir * [4.6, 8.2, 11.8][c.lane]; c.g.position.x = c.x; c.g.rotation.y = c.dir > 0 ? 0 : Math.PI; }
+      const ahead = t[0] + t[1] * c.dir * .4; if (Math.abs(ahead - c.z) > 25) c.z = ahead; else c.z += (ahead - c.z) * .5; c.v = t[1]; });
+    W.jam = d.j ? { dir: d.j[0], z0: d.j[1], z1: d.j[2], t: d.j[3] } : null; W._tt = 0; W.jamNext = 1e9; },
   close(quiet) {
     const R = this.room;
     if (R && this.ok) { if (R.host) { this.pub('r/' + R.code + '/c', { t: 'end', id: Net.me.id }); this.pub('srv/' + R.code, null, true); } else this.pub('r/' + R.code + '/c', { t: 'bye', id: Net.me.id }); }
