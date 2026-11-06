@@ -11265,7 +11265,7 @@ class CarView {
       const side = wv.base.center[0], fz = wv.base.center[2];
       const dy = side * Math.sin(veh.roll) - fz * Math.sin(veh.pitch);
       const gOff = ph.gh !== undefined && veh.py !== undefined ? Math.max(-0.6, Math.min(0.6, ph.gh - veh.py)) : 0;   // each wheel stands on its own ground (slopes, kerbs)
-      wv.piv.position.y = wv.base.radius + gOff + Math.max(-0.05, Math.min(0.05, -dy * 0.15)) + (this.hydro ? this.hydro[k] || 0 : 0) * 0;
+      wv.piv.position.y = wv.base.radius + (wv.yo || 0) + gOff + Math.max(-0.05, Math.min(0.05, -dy * 0.15)) + (this.hydro ? this.hydro[k] || 0 : 0) * 0;
     }
     if (this.steerNode && this.steerAxis) {
       const q = new THREE.Quaternion().setFromAxisAngle(this.steerAxis, veh.steer * 14);
@@ -11720,6 +11720,23 @@ const Net = {
       const st = R.view.state; st.lights = !!(b.l & 1); st.brake = !!(b.l & 2); st.haz = !!(b.l & 4); st.sigL = !!(b.l & 8); st.sigR = !!(b.l & 16); st.rev = !!(b.l & 32);
       R.view.update(fv, Game.t);
       if (R.tag) R.tag.position.set(fv.px, fv.py + R.view.box.h + .9, fv.pz);
+      // the other player's car is solid: no driving through each other
+      const P = Game.mode === 'drive' && Game.veh, B = P && P.box, RB = R.view.box;
+      if (B && RB && Math.abs(P.px - fv.px) < 7 && Math.abs(P.pz - fv.pz) < 7 && Math.abs((P.py || 0) - (fv.py || 0)) < 2) {
+        const co = Math.cos(P.yaw), si = Math.sin(P.yaw), rc = Math.cos(fv.yaw), rs = Math.sin(fv.yaw), hw = RB.hw || 1, hf = (RB.f || 2.4) - (R.fake.cgZ || 0), hr = (RB.r || -2.4) - (R.fake.cgZ || 0);
+        const vxo = (b.x - a.x) / Math.max(.05, (b.t - a.t) / 1000), vzo = (b.z - a.z) / Math.max(.05, (b.t - a.t) / 1000); let hit = 0;
+        // box against box: centres in the other car's frame, push out along the side with the least overlap
+        const cA = (B.f + B.r) / 2, hlA = (B.f - B.r) / 2, cB = (hf + hr) / 2, hlB = (hf - hr) / 2;
+        const ax = P.px + si * cA, az = P.pz + co * cA, bx = fv.px + rs * cB, bz = fv.pz + rc * cB, dx = ax - bx, dz = az - bz;
+        const ox = dx * rc - dz * rs, oz = dx * rs + dz * rc, D = P.yaw - fv.yaw, cd = Math.abs(Math.cos(D)), sd = Math.abs(Math.sin(D));
+        const ovX = cd * B.hw + sd * hlA + hw - Math.abs(ox), ovZ = sd * B.hw + cd * hlA + hlB - Math.abs(oz);
+        if (ovX > 0 && ovZ > 0) { let nx, nz, pen;
+          if (ovX < ovZ) { const sx = Math.sign(ox) || 1; nx = sx * rc; nz = -sx * rs; pen = ovX; } else { const sz = Math.sign(oz) || 1; nx = sz * rs; nz = sz * rc; pen = ovZ; }
+          P.px += nx * pen; P.pz += nz * pen;
+          const vn = (P.vx - (isFinite(vxo) ? vxo : 0)) * nx + (P.vz - (isFinite(vzo) ? vzo : 0)) * nz;
+          if (vn < 0) { P.vx -= 1.3 * vn * nx * .6; P.vz -= 1.3 * vn * nz * .6; P.r += (Math.random() - .5) * Math.min(1.2, -vn * .06); hit = -vn; } }
+        if (hit > 0) P.crash = Math.max(P.crash || 0, hit);
+      }
       if (performance.now() - b.t > 6000) this.dropRemote(id);
     }
   },
@@ -11860,7 +11877,12 @@ const Relay = {
       ws.onerror = () => { }; ws.onclose = () => { clearTimeout(to); if (!up) rej(new Error('net')); if (this.ws === ws) { this.ws = null; this.ok = false; clearInterval(this.ping); this.lost(); } };
     });
   },
-  lost() { if (Net.room && Net.room.relay) { UI.toast('انقطع الاتصال، جار إعادة الاتصال…', 2500); setTimeout(() => this.connect().then(() => { if (this.room) this.helloAgain(); }).catch(() => { if (Net.room) { UI.toast('انقطع الأونلاين', 3000); Net.leaveLocal(); } }), 1500); } },
+  lost() {   // the phone dropped the connection (screen locked, switched app, weak signal): reconnect and carry on in the same server
+    if (!this.room || this._re) return; this._re = true; UI.toast('انقطع الاتصال، جار إعادة الاتصال…', 2500);
+    const retry = n => this.connect().then(() => { this._re = false; const R = this.room; if (!R) return; if (R.host) { this.advert(); this.roomChanged(); } else if (this.helloAgain) this.helloAgain(); UI.toast('رجع الاتصال', 1500); })
+      .catch(() => { if (n < 12 && this.room) setTimeout(() => retry(n + 1), 2500); else { this._re = false; if (Net.room) { UI.toast('انقطع الأونلاين', 3000); this.close(true); Net.leaveLocal(); } } });
+    setTimeout(() => retry(0), 700);
+  },
   feed(u) {
     const b = new Uint8Array(this.buf.length + u.length); b.set(this.buf); b.set(u, this.buf.length); let o = 0;
     while (o + 2 <= b.length) {
@@ -11907,7 +11929,7 @@ const Relay = {
     this.players = {}; this.seen = {};
     this.offs.push(this.on('r/' + code + '/c', d => this.hostCtl(d)));
     this.offs.push(this.on('r/' + code + '/s', d => { if (!d || d.i === Net.me.id) return; if (this.players[d.i]) { this.seen[d.i] = Date.now(); Net.onState([d]); } }));
-    this.advert(); clearInterval(this.advT); this.advT = setInterval(() => { this.advert(); this.presence(); const now = Date.now(); for (const id in this.players) if (now - (this.seen[id] || 0) > 12000) { const n = this.players[id].name; delete this.players[id]; UI.toast('طلع ' + n, 1800); this.roomChanged(); } }, 6000);
+    this.advert(); clearInterval(this.advT); this.advT = setInterval(() => { this.advert(); this.presence(); const now = Date.now(); for (const id in this.players) if (now - (this.seen[id] || 0) > 30000) { const n = this.players[id].name; delete this.players[id]; UI.toast('طلع ' + n, 1800); this.roomChanged(); } }, 6000);
     this.presence();
     return { code, map: this.room.map, players: this.list(), relay: true, host: true, name: this.room.name, priv: this.room.priv };
   },
@@ -11929,14 +11951,14 @@ const Relay = {
       this.close(true); this.room = { code, host: false, pw }; this.players = {};
       const hello = () => this.pub('r/' + code + '/c', Object.assign({ t: 'hello', pw: pw || '', fr: !!fr }, this.me()));
       this.helloAgain = hello;
-      let done = false; const to = setTimeout(() => { if (done) return; done = true; this.close(true); rej(new Error('no-room')); }, 9000);
+      let done = false; const to = setTimeout(() => { if (done) return; done = true; this.close(true); rej(new Error('no-room')); }, 16000);
       this.offs.push(this.on('r/' + code + '/c', d => { if (!d) return;
         if (d.t === 'welcome' && d.to === Net.me.id) { if (!done) { done = true; clearTimeout(to); this.room.name = d.name; this.room.map = d.map; res({ code, map: d.map, players: d.players, relay: true, name: d.name }); } else Net.emit('room', { players: d.players }); }
         else if (d.t === 'deny' && d.to === Net.me.id && !done) { done = true; clearTimeout(to); this.close(true); rej(new Error(d.why === 'pw' ? 'pw' : 'full')); }
         else if (d.t === 'room' && done) { this.room.n = (d.players || []).length; Net.emit('room', { players: d.players }); }
         else if (d.t === 'end' && done) { UI.toast('صاحب السيرفر قفله', 3000); this.close(true); Net.leaveLocal(); } }));
       this.offs.push(this.on('r/' + code + '/s', d => { if (d && d.i !== Net.me.id) Net.onState([d]); }));
-      setTimeout(hello, 350); this.hiT = setInterval(() => { if (done && this.room) hello(); }, 8000);   // keeps the host knowing we're here
+      setTimeout(hello, 350); let tries = 0; this.hiT = setInterval(() => { if (!this.room) return; if (!done) { if (++tries % 2 === 0) hello(); } else if (++tries % 5 === 0) hello(); }, 1600);   // until the host answers, then now and then so the host knows we're here
     }));
   },
   sendState(d) { const R = this.room; if (!R || !this.ok) return; this.pub('r/' + R.code + '/s', Object.assign({ i: Net.me.id }, d)); },
@@ -11951,6 +11973,8 @@ window.addEventListener('pagehide', () => { try { Relay.close(true); } catch (e)
 
 // be findable by name (friends) as soon as the game is open
 setTimeout(() => { try { if (Net.p2p() && SAVE.name) Net.connect().catch(() => { }); } catch (e) { } }, 4000);
+
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Relay.room && !Relay.ok) Relay.lost(); });
 
 // ===== simulation layer: engine & condition HUD, fuel stations, car wash, jobs, weather, walking, steering wheel, camera orbit =====
 const SIM = {
@@ -14581,6 +14605,8 @@ function applyFun(view, cfg) {
   const hide = new Set((F && F.hide) || []), all = F && F.hideAll;
   view.bodyHolder.traverse(o => { if (!o.isMesh || (view.extras && isChildOf(o, view.extras))) return; if (o.userData.funHid === undefined) o.userData.funHid = !o.visible; o.visible = !o.userData.funHid && !all && !hide.has(o.name); });
   if (view.steerNode && all) view.steerNode.visible = false;
+  // tyres moved by hand in the editor (wider, narrower, forward, back, higher)
+  if (view.wheels) for (const k in view.wheels) { const W = view.wheels[k], o = (F && F.wo && F.wo[k]) || [0, 0, 0]; W.piv.position.x = W.base.center[0] + o[0]; W.piv.position.z = W.base.center[2] + o[2]; W.yo = o[1]; }
   if (!F || !F.pieces || !F.pieces.length) return;
   const g = new THREE.Group(), g0 = -view.groundOff; g.name = 'fun';
   F.pieces.forEach((p, i) => { const o = makeFunPiece(p); o.position.set(p.p[0], g0 + p.p[1], p.p[2]); o.userData.funIdx = i; g.add(o); });
@@ -14607,10 +14633,10 @@ Object.assign(SCR, {
     L.querySelectorAll('[data-fs]').forEach(b => b.onclick = () => this.funShare(cars[+b.dataset.fs]));
     $('fnImp').onclick = () => { UI.modal(`<div class="h1">${tx('استلم سيارة', 'Receive a car')}</div><div class="uline"></div><p class="sub">${tx('الصق الرمز اللي أرسله لك خويك', 'Paste the code your friend sent')}</p><textarea id="fnCode" style="width:100%;height:90px;direction:ltr"></textarea><div class="row"><span></span><button class="btn y" id="fnGo">${tx('استلام', 'Receive')}</button></div>`, 70);
       $('fnGo').onclick = () => { try { const o = JSON.parse(decodeURIComponent(escape(atob($('fnCode').value.trim())))); if (!o || !Array.isArray(o.pieces) || !CARS[o.base]) throw 0;
-        o.pieces = o.pieces.filter(p => FUN_T[p.t]).slice(0, 200); SAVE.fun.cars.push({ n: String(o.n || 'سيارة').slice(0, 20), base: o.base, hideAll: !!o.hideAll, pieces: o.pieces }); persist(); UI.closeModal(); UI.toast(tx('وصلتك السيارة', 'Car received'), 2000); this.re(); } catch (e) { UI.toast(tx('الرمز غلط', 'Wrong code'), 2000); } }; };
+        o.pieces = o.pieces.filter(p => FUN_T[p.t]).slice(0, 200); SAVE.fun.cars.push({ n: String(o.n || 'سيارة').slice(0, 20), base: o.base, hideAll: !!o.hideAll, pieces: o.pieces, wo: o.wo || {} }); persist(); UI.closeModal(); UI.toast(tx('وصلتك السيارة', 'Car received'), 2000); this.re(); } catch (e) { UI.toast(tx('الرمز غلط', 'Wrong code'), 2000); } }; };
   },
   funShare(car) {
-    const code = btoa(unescape(encodeURIComponent(JSON.stringify({ n: car.n, base: car.base, hideAll: car.hideAll, pieces: car.pieces }))));
+    const code = btoa(unescape(encodeURIComponent(JSON.stringify({ n: car.n, base: car.base, hideAll: car.hideAll, pieces: car.pieces, wo: car.wo || {} }))));
     UI.modal(`<div class="h1">${tx('أعطها لخويك', 'Give to a friend')}</div><div class="uline"></div><p class="sub">${tx('انسخ الرمز وأرسله له، وهو يفتح «المتعة» ويضغط «استلم سيارة من خويك».', 'Copy the code and send it; your friend opens Fun › Receive a car.')}</p><textarea id="fnOut" readonly style="width:100%;height:90px;direction:ltr">${code}</textarea><div class="row"><span></span><button class="btn y" id="fnCopy">${tx('نسخ', 'Copy')}</button></div>`, 70);
     $('fnCopy').onclick = () => { const t = $('fnOut'); t.select(); try { navigator.clipboard.writeText(code).then(() => UI.toast(tx('انسخ', 'Copied'), 1500), () => document.execCommand('copy')); } catch (e) { document.execCommand('copy'); } UI.toast(tx('انسخ الرمز', 'Copied'), 1500); };
   },
@@ -14641,7 +14667,7 @@ Object.assign(SCR, {
         <div class="row">${arrow('sz+', tx('طول +', 'Length +'))}${arrow('sz-', '−')}${arrow('sy+', tx('ارتفاع +', 'Height +'))}${arrow('sy-', '−')}</div>
         <div class="fcols">${cols.map(c => `<i style="background:${c}" data-fc="${c}"></i>`).join('')}</div>
         <div class="row">${funHome(sel.t, Game.gCar ? Game.gCar.box : { f: 2 }) ? `<button class="btn y sm" id="fnHome">${tx('حط ', 'Put ')}${FUN_T[sel.t][0]}${tx(' في مكانه', ' in place')}</button>` : ''}<button class="btn o sm" id="fnDup">${tx('نسخة', 'Copy')}</button><button class="btn o sm" id="fnRm">${tx('شيل القطعة', 'Remove piece')}</button></div></div>` : ''}</div>
-      <div class="fcam"><button class="btn o sm" data-cz="in">🔍+</button><button class="btn o sm" data-cz="out">🔍−</button><button class="btn o sm" data-cz="seat">${tx('داخل', 'Inside')}</button><button class="btn o sm" data-cz="reset">${tx('برّا', 'Outside')}</button><small>${tx('حرّك الشاشة بإصبع تلف، وبإصبعين تقرّب، واسحب القطعة بإصبعك', 'Drag to turn, pinch to zoom, drag a piece')}</small></div>
+      <div class="fcam"><button class="btn o sm" data-cz="in">🔍+</button><button class="btn o sm" data-cz="out">🔍−</button><button class="btn o sm" data-cz="seat">${tx('داخل', 'Inside')}</button><button class="btn o sm" data-cz="reset">${tx('برّا', 'Outside')}</button><small>${tx('إصبع: تلف · إصبعين: تقرّب وتمشي بالكاميرا · اسحب القطعة أو الكفر بإصبعك', 'Drag to turn, two fingers to zoom and move, drag a piece or tyre')}</small></div>
       <div class="tbtns"><span class="sp"></span><button class="btn y" id="fnDone">${tx('تم', 'Done')}</button></div>`);
     const L = $('scr'), redraw = () => { this.funPreview(); this.re(); };
     L.querySelectorAll('[data-fa]').forEach(b => b.onclick = () => { const t = b.dataset.fa, d = FUN_T[t], B = Game.gCar ? Game.gCar.box : { f: 2, h: 1.6 };
@@ -14670,18 +14696,28 @@ Object.assign(SCR, {
     };
     // free camera: one finger turns around the car, two fingers zoom (all the way inside); press a piece and drag it
     if (!Game.funCam) Game.funCam = { a: 0.9, e: 0.25, d: 6.5, t: new THREE.Vector3(0, 0.8, 0) };
-    if (!L._funCam) { L._funCam = true; const pts = new Map(); let drag = null, pinch0 = 0, d0 = 0;
+    if (!L._funCam) { L._funCam = true; const pts = new Map(); let drag = null, pinch0 = 0, d0 = 0, mid0 = null;
       const ray = e => { const cv2 = Game.renderer.domElement, r = cv2.getBoundingClientRect(), rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), Game.camera); return rc; };
       L.addEventListener('pointerdown', e => { if (SCR.cur !== 'funed' || e.target !== L) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
-        if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); d0 = Game.funCam.d; drag = null; return; }
+        if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); d0 = Game.funCam.d; mid0 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; drag = null; return; }
+        const CV = Game.gCar; if (CV && CV.wheels && SCR.fMode !== 'del') {   // press a tyre and drag it where you want
+          const piv = Object.values(CV.wheels).map(w => w.piv), h = ray(e).intersectObjects(piv, true)[0];
+          if (h) { let o = h.object; const k = Object.keys(CV.wheels).find(k => isChildOf(o, CV.wheels[k].piv));
+            if (k) { const W = CV.wheels[k], pl = new THREE.Plane().setFromNormalAndCoplanarPoint(Game.camera.getWorldDirection(new THREE.Vector3()).negate(), h.point);
+              drag = { pl, wheel: k, W, off: W.piv.getWorldPosition(new THREE.Vector3()).sub(h.point) }; SCR._noRe = true; return; } } }
         const G = Game.gCar && Game.gCar.funG; if (G && SCR.fMode !== 'del') { const h = ray(e).intersectObject(G, true)[0];
           if (h) { let o = h.object; while (o && o.userData.funIdx === undefined) o = o.parent;
             if (o) { SCR.fSel = o.userData.funIdx; const pl = new THREE.Plane().setFromNormalAndCoplanarPoint(Game.camera.getWorldDirection(new THREE.Vector3()).negate(), h.point); drag = { pl, o, off: o.getWorldPosition(new THREE.Vector3()).sub(h.point) }; SCR._noRe = true; } } } });
       L.addEventListener('pointermove', e => { if (SCR.cur !== 'funed' || !pts.has(e.pointerId)) return; const pr = pts.get(e.pointerId), dx = e.clientX - pr[0], dy = e.clientY - pr[1]; pts.set(e.pointerId, [e.clientX, e.clientY]); const C = Game.funCam;
-        if (pts.size >= 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0) C.d = clamp(d0 * pinch0 / Math.max(d, 1), .15, 14); return; }
+        if (pts.size >= 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0) C.d = clamp(d0 * pinch0 / Math.max(d, 1), .15, 14);
+          // two fingers moving together slide the camera anywhere (up, down, sideways)
+          const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; if (mid0) { const cam = Game.camera, R = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), U = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1), k = Math.max(.15, C.d) * .0025;
+            C.t.addScaledVector(R, -(m[0] - mid0[0]) * k).addScaledVector(U, (m[1] - mid0[1]) * k); C.t.y = clamp(C.t.y, -0.5, 4); C.t.x = clamp(C.t.x, -6, 6); C.t.z = clamp(C.t.z, -8, 8); } mid0 = m; return; }
+        if (drag && drag.wheel) { const hp = new THREE.Vector3(); if (ray(e).ray.intersectPlane(drag.pl, hp)) { hp.add(drag.off); const P = drag.W.piv.parent.worldToLocal(hp), b = drag.W.base, F = SCR.fF, wo = F.wo || (F.wo = {});
+            const o = [clamp(P.x - b.center[0], -.6, .6), clamp(P.y - b.radius, -.3, .5), clamp(P.z - b.center[2], -.8, .8)]; wo[drag.wheel] = o.map(v => +v.toFixed(3)); drag.W.piv.position.set(b.center[0] + o[0], b.radius + o[1], b.center[2] + o[2]); drag.W.yo = o[1]; } return; }
         if (drag) { const hp = new THREE.Vector3(); if (ray(e).ray.intersectPlane(drag.pl, hp)) { hp.add(drag.off); const P = drag.o.parent.worldToLocal(hp), pc = SCR.fF.pieces[drag.o.userData.funIdx], g0 = -Game.gCar.groundOff; pc.p = [+P.x.toFixed(3), +(P.y - g0).toFixed(3), +P.z.toFixed(3)]; drag.o.position.copy(P); } return; }
         C.a -= dx * .008; C.e = clamp(C.e + dy * .006, -0.6, 1.45); });
-      const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch0 = 0; if (drag && !pts.size) { drag = null; SCR._noRe = false; SCR.funPreview(); SCR.re(); } };
+      const up = e => { pts.delete(e.pointerId); if (pts.size < 2) { pinch0 = 0; mid0 = null; } if (drag && !pts.size) { drag = null; SCR._noRe = false; SCR.funPreview(); SCR.re(); } };
       L.addEventListener('pointerup', up); L.addEventListener('pointercancel', up);
       L.addEventListener('wheel', e => { if (SCR.cur === 'funed') Game.funCam.d = clamp(Game.funCam.d * (e.deltaY > 0 ? 1.1 : .9), .15, 14); }, { passive: true }); }
     L.querySelectorAll('[data-cz]').forEach(b => b.onclick = () => { const C = Game.funCam, k = b.dataset.cz;
