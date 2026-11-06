@@ -960,7 +960,7 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 <div class="adscr" id="adscr"><div style="font:800 28px/1 var(--fl);color:#555;border:2px dashed #333;padding:60px 90px">AD</div><div id="adTxt" style="font:700 18px/1 var(--fa);color:#aaa"></div><button class="btn y" id="adClose" disabled>✕</button></div>
 <div id="rot"><svg viewBox="0 0 24 24" fill="none" stroke="#f3e40c" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><div data-t="rotate"></div></div>
 
-<script>window.RPMX_PACKS=[{"f":"rpmx.wasm","b":0,"i":{"tahoe.glb.gz":[0,10246514],"player.glb.gz":[10246514,2238275],"tahoe15.glb.gz":[12484789,4379895],"hilux97.glb.gz":[16864684,3007849]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx1.wasm","b":0,"i":{"hilux.glb.gz":[0,14962808],"frs_map.json":[14962808,23559]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx2.wasm","b":0,"i":{"frs_sand.jpg":[14626409,291088],"frs_terrain.bin.gz":[14917497,72498]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx3.wasm","b":0,"i":{"frs_statics.glb.gz.p0":[0,9767981],"frs_surf.bin.gz":[12775830,933206],"frs_asphalt.jpg":[13709036,238045]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx4.wasm","b":0,"i":{"frs_statics.glb.gz.p1":[0,9767980]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx5.wasm","b":0,"i":{"gmc.glb.gz":[0,9503369]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx6.wasm","b":0,"i":{"accent.glb.gz.p0":[0,9233229],"camry.glb.gz":[9233229,5539598]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx7.wasm","b":0,"i":{"accent.glb.gz.p1":[0,9233229]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx8.wasm","b":0,"i":{"shas.glb.gz.p0":[0,8731826]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx9.wasm","b":0,"i":{"shas.glb.gz.p1":[0,8731825]}},{"f":"https://trkyalshmry727-hue.github.io/-RPMX/rpmx10.wasm","b":0,"i":{"sequoia.glb.gz":[0,6499181]}}];</script><script>(function(){/**
+<script>window.RPMX_PACKS=[{"f":"rpmx.wasm","b":0,"i":{"tahoe.glb.gz":[0,10246514],"player.glb.gz":[10246514,2238275],"tahoe15.glb.gz":[12484789,4379895],"hilux97.glb.gz":[16864684,3007849]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx1.wasm","b":0,"i":{"hilux.glb.gz":[0,14962808],"frs_map.json":[14962808,23559]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx2.wasm","b":0,"i":{"frs_sand.jpg":[14626409,291088],"frs_terrain.bin.gz":[14917497,72498]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx3.wasm","b":0,"i":{"frs_statics.glb.gz.p0":[0,9767981],"frs_surf.bin.gz":[12775830,933206],"frs_asphalt.jpg":[13709036,238045]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx4.wasm","b":0,"i":{"frs_statics.glb.gz.p1":[0,9767980]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx5.wasm","b":0,"i":{"gmc.glb.gz":[0,9503369]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx6.wasm","b":0,"i":{"accent.glb.gz.p0":[0,9233229],"camry.glb.gz":[9233229,5539598]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx7.wasm","b":0,"i":{"accent.glb.gz.p1":[0,9233229]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx8.wasm","b":0,"i":{"shas.glb.gz.p0":[0,8731826]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx9.wasm","b":0,"i":{"shas.glb.gz.p1":[0,8731825]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx10.wasm","b":0,"i":{"sequoia.glb.gz":[0,6499181]}}];</script><script>(function(){/**
  * @license
  * Copyright 2010-2024 Three.js Authors
  * SPDX-License-Identifier: MIT
@@ -10778,7 +10778,7 @@ function getPack(onProg) {
         if (P.src === 'm') {
           if (mfull[P.f]) { const F = await mfull[P.f]; return F ? F.subarray(P.off, P.off + P.len) : null; }
           if (/^https?:/.test(P.f)) {   // file kept on another site: download it whole once (no partial requests across sites)
-            mfull[P.f] = (async () => { try { const r = await fetch(P.f); if (!r.ok) return null; const tot = +r.headers.get('content-length') || 0, rd = r.body.getReader(), ch = []; let got = 0;
+            mfull[P.f] = (async () => { try { let r = await fetch(P.f).catch(() => null); if ((!r || !r.ok) && /raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/main\//.test(P.f)) { const m = P.f.match(/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/main\/(.*)$/); r = await fetch('https://' + m[1] + '.github.io/' + m[2] + '/' + m[3]).catch(() => null); } if (!r || !r.ok) return null; const tot = +r.headers.get('content-length') || 0, rd = r.body.getReader(), ch = []; let got = 0;
               for (;;) { const { done, value } = await rd.read(); if (done) break; ch.push(value); got += value.length; onProg && tot && onProg(Math.min(.95, got / tot)); }
               const u = new Uint8Array(got); let o = 0; for (const x of ch) { u.set(x, o); o += x.length; } return u; } catch (e) { return null; } })();
             const F = await mfull[P.f]; if (!F) delete mfull[P.f]; return F ? F.subarray(P.off, P.off + P.len) : null; }
@@ -10841,7 +10841,7 @@ async function fetchCar(spec, onProg) {
       buf = u8.buffer; break;
     } catch (e) { lastErr = e; }
   }
-  if (!buf) throw (PK ? new Error((window.RPMX_PACKS || []).some(p => /^https?:/.test(p.f)) ? 'ما قدرت أجيب ملف ' + spec.name + ' من مستودع «-آر بي إم إكس». شغّل «الصفحات» فيه' : spec.name + ' — ' + 'ملفها مو مرفوع') : lastErr);
+  if (!buf) throw (PK ? new Error((window.RPMX_PACKS || []).some(p => /^https?:/.test(p.f)) ? 'ما قدرت أنزّل ' + spec.name + '. تأكد من الإنترنت وجرب مرة ثانية' : spec.name + ' — ' + 'ملفها مو مرفوع') : lastErr);
   buf = rpzDecode(buf);
   const gltf = await new Promise((res, rej) => new GLTFLoader().parse(buf, '', res, rej));
   // low / medium graphics: shrink big textures (saves a lot of memory on phones)
@@ -11694,6 +11694,7 @@ const Net = {
     const now = performance.now();
     for (const p of d) {
       if (p.i === (this.me && this.me.id)) continue;
+      this.rxN = (this.rxN || 0) + 1;
       let R = this.remotes[p.i];
       if (!R) R = this.remotes[p.i] = { buf: [], info: (this.room.players || []).find(x => x.id === p.i) || { id: p.i, name: '?', car: 'tahoe' } };
       R.buf.push({ t: now, ...p }); if (R.buf.length > 20) R.buf.shift();
@@ -11701,10 +11702,11 @@ const Net = {
   },
   tick(dt, v, cv) {
     const tag = $('roomTag'); if (tag) { if (!this.room || !this.room.code) { if (tag.style.display !== 'none') tag.style.display = 'none'; }
-      else { tag.style.display = 'block'; const n = 1 + Object.keys(this.remotes).length, txt = (this.room.name ? this.room.name + ' · ' : '') + 'رقم ' + this.room.code + ' · ' + n + (n > 1 ? ' لاعبين' : ' لاعب'); if (tag.textContent !== txt) tag.textContent = txt; } }
+      else { tag.style.display = 'block'; const n = Math.max(1 + Object.keys(this.remotes).length, (this.room.players || []).length), now2 = performance.now(); if (!this._rxT || now2 - this._rxT > 2000) { this._rxR = this._rxT ? Math.round((this.rxN || 0) * 1000 / (now2 - this._rxT)) : 0; this.rxN = 0; this._rxT = now2; }
+        const txt = (this.room.name ? this.room.name + ' · ' : '') + 'رقم ' + this.room.code + ' · ' + n + (n > 1 ? ' لاعبين' : ' لاعب') + (n > 1 ? ' · يوصلني ' + (this._rxR || 0) + ' بالثانية' : '') + (Relay.ok ? '' : ' · غير متصل'); if (tag.textContent !== txt) tag.textContent = txt; } }
     if (!this.room || !this.ok) return;
-    this.sendT -= dt;
-    if (this.sendT <= 0) {
+    const nowS = performance.now(); if (!this._lastS) this._lastS = 0;
+    if (nowS - this._lastS >= (this.p2p() ? 240 : 80)) { this._lastS = nowS;
       this.sendT = this.p2p() ? 0.25 : 0.08;
       const s = cv.state;
       this.send('st', { x: +v.px.toFixed(2), y: +(v.py || 0).toFixed(2), z: +v.pz.toFixed(2), a: +v.yaw.toFixed(3), p: +(v.pitch + (v.tPitch || 0)).toFixed(3), r: +(v.roll + (v.tRoll || 0)).toFixed(3), s: +v.steer.toFixed(3), w: +v.wheels[2].w.toFixed(1), l: (s.lights ? 1 : 0) | (s.brake ? 2 : 0) | (s.haz ? 4 : 0) | (s.sigL ? 8 : 0) | (s.sigR ? 16 : 0) | (s.rev ? 32 : 0) });
@@ -11745,14 +11747,19 @@ const Net = {
           if (vn < 0) { P.vx -= 1.3 * vn * nx * .6; P.vz -= 1.3 * vn * nz * .6; P.r += (Math.random() - .5) * Math.min(1.2, -vn * .06); hit = -vn; } }
         if (hit > 0) P.crash = Math.max(P.crash || 0, hit);
       }
-      if (performance.now() - b.t > 6000) this.dropRemote(id);
+      if (performance.now() - b.t > 15000) this.dropRemote(id);
     }
   },
   makeRemote(R) {
     if (R.loading) return;
     const want = R.info.car && CARS[R.info.car] ? R.info.car : 'tahoe';
     const use = CAR_CACHE[want] ? want : (Object.keys(CAR_CACHE).length < 3 ? want : SAVE.car);
-    if (!CAR_CACHE[use]) { R.loading = true; fetchCar(CARS[use]).then(() => { R.loading = false; }).catch(() => { R.loading = false; R.info.car = SAVE.car; }); return; }
+    if (!CAR_CACHE[use]) { R.loading = true; fetchCar(CARS[use]).then(() => { R.loading = false; if (R.view && R.tmp) this.swapRemote(R); }).catch(() => { R.loading = false; R.info.car = SAVE.car; });
+      if (R.view || !CAR_CACHE[SAVE.car]) return; R.tmp = true; return this.buildRemote(R, SAVE.car); }
+    return this.buildRemote(R, use);
+  },
+  swapRemote(R) { if (R.view) { R.view.root.removeFromParent(); } if (R.tag) R.tag.removeFromParent(); R.view = null; R.tmp = false; this.makeRemote(R); },
+  buildRemote(R, use) {
     const cfg = Object.assign({ eng: 0, turbo: 0, tires: 0, brakes: 0, abs: true, gear: 'auto', diff: 'lsd', drive: 'rwd' }, R.info.look || {});
     const view = new CarView(CAR_CACHE[use], CARS[use], cfg, { shadow: Game.q.shadow > 0, headlights: false });
     const fake = new Vehicle(CARS[use], cfg, view.geom); view.setPivot(fake.cgZ);
@@ -11868,14 +11875,16 @@ const Relay = {
     if (this.ok && this.ws && this.ws.readyState === 1) return Promise.resolve();
     if (this._p) return this._p;
     this._p = (async () => { let last;
-      for (const url of this.brokers()) { try { await this.open(url); this._p = null; return; } catch (e) { last = e; } }
+      // once a relay has worked, always come back to the same one (players on different relays can't see each other)
+      const list = this.url ? [this.url] : this.brokers();
+      for (const url of list) { for (let k = 0; k < (this.url ? 3 : 1); k++) { try { await this.open(url); this.url = url; this._p = null; return; } catch (e) { last = e; } } }
       this._p = null; throw new Error('net'); })();
     return this._p;
   },
   open(url) {
     return new Promise((res, rej) => {
       let ws; try { ws = new WebSocket(url, 'mqtt'); } catch (e) { return rej(e); }
-      ws.binaryType = 'arraybuffer'; const to = setTimeout(() => { try { ws.close(); } catch (e) { } rej(new Error('net')); }, 7000); let up = false;
+      ws.binaryType = 'arraybuffer'; const to = setTimeout(() => { try { ws.close(); } catch (e) { } rej(new Error('net')); }, 12000); let up = false;
       ws.onopen = () => { const id = 'rpmx' + P2P.rnd(10);
         const body = [...this.str('MQTT'), 4, 2, 0, 40, ...this.str(id)]; ws.send(this.pkt(0x10, body)); };
       ws.onmessage = ev => { const u = new Uint8Array(ev.data);
@@ -11918,7 +11927,7 @@ const Relay = {
     const k = this.key(SAVE.name); if (this._mineK === k) return; if (this._mineOff) this._mineOff.forEach(f => f()); this._mineK = k;
     this._mineOff = [this.on('fr/' + k + '/+', (d, t) => { if (!d || !d.name) return; const id = t.split('/').pop(), fr = SAVE.friends2 || (SAVE.friends2 = []);
         if (!fr.find(f => f.id === id)) { fr.push({ id, name: d.name }); persist(); UI.toast(d.name + ' ' + 'أضافك لأصدقائه', 3000); if (SCR.cur === 'social') SCR.re(); } }),
-      this.on('inv/' + k, d => { if (!d || !d.code || Date.now() - d.t > 60000) return; UI.invite && UI.invite(d); })];
+      this.on('inv/' + k, d => { if (!d || !d.code || Date.now() - d.t > 120000) return; const L = SAVE.invites || (SAVE.invites = []); if (!L.some(x => x.code === d.code && x.t === d.t)) { L.unshift(d); SAVE.invites = L.slice(0, 20); persist(); } UI.invite && UI.invite(d); if (SCR.cur === 'social') SCR.re(); })];
   },
   addFriend(id, name) { if (this.ok) this.pub('fr/' + id + '/' + this.key(SAVE.name), { name: SAVE.name || 'DRIVER', t: Date.now() }, true); },
   delFriend(id) { if (this.ok) this.pub('fr/' + id + '/' + this.key(SAVE.name), null, true); },
@@ -11972,10 +11981,10 @@ const Relay = {
   },
   sendState(d) { const R = this.room; if (!R || !this.ok) return; this.pub('r/' + R.code + '/s', Object.assign({ i: Net.me.id }, d));
     const W = Game.world, now = performance.now();
-    if (R.host && W && W.traffic && now - (this._trT || 0) > 1000) { this._trT = now; this.pub('r/' + R.code + '/t', { m: W.mapId || 'highway', c: W.traffic.map(c => [Math.round(c.z * 10) / 10, Math.round(c.v * 10) / 10, c.lane, c.dir]), j: W.jam ? [W.jam.dir, Math.round(W.jam.z0), Math.round(W.jam.z1), Math.round(W.jam.t)] : 0 }); } },
+    if (R.host && W && W.traffic && now - (this._trT || 0) > 2000) { this._trT = now; this.pub('r/' + R.code + '/t', { m: W.mapId || 'highway', c: W.traffic.map(c => [Math.round(c.z * 10) / 10, Math.round(c.v * 10) / 10, c.lane, c.dir]), j: W.jam ? [W.jam.dir, Math.round(W.jam.z0), Math.round(W.jam.z1), Math.round(W.jam.t)] : 0 }); } },
   onTraffic(d) { const W = Game.world; if (!d || !W || !W.traffic || (W.mapId || 'highway') !== d.m || this.room && this.room.host) return;
     d.c.forEach((t, i) => { const c = W.traffic[i]; if (!c) return; if (c.lane !== t[2] || c.dir !== t[3]) { c.lane = t[2]; c.dir = t[3]; c.x = -c.dir * [4.6, 8.2, 11.8][c.lane]; c.g.position.x = c.x; c.g.rotation.y = c.dir > 0 ? 0 : Math.PI; }
-      const ahead = t[0] + t[1] * c.dir * .4; if (Math.abs(ahead - c.z) > 25) c.z = ahead; else c.z += (ahead - c.z) * .5; c.v = t[1]; });
+      const ahead = t[0] + t[1] * c.dir * .6; if (Math.abs(ahead - c.z) > 25) c.z = ahead; else c.z += (ahead - c.z) * .5; c.v = t[1]; });
     W.jam = d.j ? { dir: d.j[0], z0: d.j[1], z1: d.j[2], t: d.j[3] } : null; W._tt = 0; W.jamNext = 1e9; },
   close(quiet) {
     const R = this.room;
@@ -12090,7 +12099,7 @@ const SIM = {
     // crash damage: dents + tyre hits
     if (v.crash > 3.5 && !this._cr) { this._cr = .4; this.crashDamage(v.crash); } if (this._cr) { this._cr -= dt; if (this._cr <= 0) this._cr = 0; }
     // oil leak: level drops and a trail of oil drips under the engine
-    if (st && st.leak > 0 && v.engineOn !== undefined) { st.oil = Math.max(0, st.oil - st.leak * dt * .5); this.dripT = (this.dripT || 0) + dt;
+    if (st && st.leak > 0 && v.engineOn !== undefined) { st.oil = Math.max(5, st.oil - st.leak * dt * .25); this.dripT = (this.dripT || 0) + dt;
       if (this.dripT > (v.speed > 3 ? .12 : .6) && st.oil > 0) { this.dripT = 0; this.oilDrip(v, cv); } }
     // hydraulics bounce
     if (v.hyd && this.hydBounce) { this.hydT = (this.hydT || 0) + dt * 7; const b = Math.max(0, Math.sin(this.hydT)) * .14; v.hyd.FL = v.hyd.FR = b; v.hyd.RL = v.hyd.RR = Math.max(0, Math.sin(this.hydT - 1.2)) * .14; }
@@ -12130,7 +12139,7 @@ const SIM = {
       if (Math.abs(vF) >= Math.abs(vL)) { if (vF >= 0) { add('fb', force * 6); add('hood', force * 3); if (force > 4) add('eng', force * 2); } else add('rb', force * 6); }
       else add(vL > 0 ? 'ld' : 'rd', force * 6); }
     // a hard front hit cracks the sump / radiator: engine oil starts to leak
-    if (v.st && force > 8 && Math.abs(vF) >= Math.abs(vL) && vF >= 0) { v.st.leak = Math.min(4, (v.st.leak || 0) + (force - 7) * .35); UI.toast('صدمة قوية! الزيت يخر من المكينة', 2500); }
+    if (v.st && force > 14 && Math.abs(vF) >= Math.abs(vL) && vF >= 0 && !Game.netCrash) { v.st.leak = Math.min(1.2, (v.st.leak || 0) + (force - 13) * .15); UI.toast('صدمة قوية! الزيت يخر من المكينة', 2500); }
     // a hard hit near a wheel can puncture it
     const wi = lp.z > 0 ? (lp.x > 0 ? 0 : 1) : (lp.x > 0 ? 2 : 3);
     if (force > 6) v.hitTire(wi, (force - 5) * 9);
@@ -12806,7 +12815,7 @@ const Game = {
     const { view, veh } = this.makeCar(id, CAR_CACHE[id], true);
     this.carView = view; this.veh = veh;
     // a fresh drive starts with a cold engine and gearbox
-    if (veh.st) { veh.st.eT = Math.min(veh.st.eT, 30); veh.st.gT = Math.min(veh.st.gT, 30); }
+    if (veh.st) { veh.st.leak = 0; veh.st.eT = Math.min(veh.st.eT, 30); veh.st.gT = Math.min(veh.st.gT, 30); }
     this.world.scene.add(view.root);
     this.setupFx();
     this.spawn();
@@ -14310,12 +14319,19 @@ const SCR = {
   // ================= اجتماعي =================
   async v_social() {
     const tab = this.soTab || 'friends';
-    const shell = inner => this.paint(this.top('users', tx('اجتماعي', 'Social')) + `<div class="lside">${[['friends', tx('الأصدقاء', 'Friends'), 'users'], ['clan', tx('الكلان', 'Clan'), 'crown'], ['chat', tx('دردشة', 'Chat'), 'chat'], ['inbox', tx('الوارد', 'Inbox'), 'mail'], ['rank', tx('الترتيب', 'Ranking'), 'trophy']].map(([a, l, i]) => `<button class="${tab === a ? 'on' : ''}" data-so="${a}">${ic(i)} ${l}</button>`).join('')}</div><div class="llist so">${inner}</div>`);
+    const shell = inner => this.paint(this.top('users', tx('اجتماعي', 'Social')) + `<div class="lside">${[['friends', tx('الأصدقاء', 'Friends'), 'users'], ['inv', tx('الدعوات', 'Invites') + ((SAVE.invites || []).filter(d => Date.now() - d.t < 600000).length ? ' •' : ''), 'mail'], ['clan', tx('الكلان', 'Clan'), 'crown'], ['chat', tx('دردشة', 'Chat'), 'chat'], ['inbox', tx('الوارد', 'Inbox'), 'mail'], ['rank', tx('الترتيب', 'Ranking'), 'trophy']].map(([a, l, i]) => `<button class="${tab === a ? 'on' : ''}" data-so="${a}">${ic(i)} ${l}</button>`).join('')}</div><div class="llist so">${inner}</div>`);
     const bindTabs = () => $('scr').querySelectorAll('[data-so]').forEach(b => b.onclick = () => { this.soTab = b.dataset.so; this.re(); });
     shell(`<div class="lnote">${tx('جار الاتصال…', 'Connecting…')}</div>`); bindTabs();
     try { await Net.connect(); } catch (e) { if (this.cur !== 'social') return; shell(`<div class="lnote">${this.netNote(e)}</div><button class="btn y" data-go="online">${tx('إعداد السيرفر', 'Server setup')}</button>`); bindTabs(); $('scr').querySelectorAll('[data-go]').forEach(b => b.onclick = () => { this.stack = []; this.cur = null; this.open('online'); }); return; }
     if (this.cur !== 'social') return;
     const row = (u, btns) => `<div class="lrow"><i class="dot${u.online ? ' on' : ''}"></i><span>${esc(u.name)}${u.clan ? ` <small>[${esc(u.clan)}]</small>` : ''}<small> · ${tx('مستوى', 'Lv')} ${u.level}</small></span><em>${btns || ''}</em></div>`;
+    if (tab === 'inv') {   // invitations people sent you to play with them
+      const L = (SAVE.invites || []).filter(d => Date.now() - d.t < 3600000);
+      shell(L.map((d, i) => `<div class="frow"><b>${esc(d.from)}</b><small>${tx('يدعوك تلعب معه', 'invites you')} · ${Math.max(1, Math.round((Date.now() - d.t) / 60000))} ${tx('دقيقة', 'min')}</small><span class="sp"></span><button class="btn y sm" data-ia="${i}">${tx('قبول', 'Accept')}</button><button class="btn o sm" data-ix="${i}">✕</button></div>`).join('') || `<div class="lnote">${tx('ما عندك دعوات. لما خويك يضغط «ادعه» تطلع هنا.', 'No invites yet.')}</div>`);
+      $('scr').querySelectorAll('[data-so]').forEach(b => b.onclick = () => { this.soTab = b.dataset.so; this.re(); });
+      $('scr').querySelectorAll('[data-ia]').forEach(b => b.onclick = () => { const d = L[+b.dataset.ia]; this.goOnline(() => Net.join(d.code, null, d.pw)); });
+      $('scr').querySelectorAll('[data-ix]').forEach(b => b.onclick = () => { const d = L[+b.dataset.ix]; SAVE.invites = (SAVE.invites || []).filter(x => x !== d && !(x.code === d.code && x.t === d.t)); persist(); this.re(); });
+      return; }
     if (tab === 'friends') {
       const fr = await Net.req('friends', {}).catch(() => []);
       shell(`<div class="sinp"><input id="soQ" maxlength="16" placeholder="${tx('اكتب اسم خويك', 'Find a player by name')}" dir="auto"><button class="btn y sm" id="soFind">${tx('بحث', 'Search')}</button></div><div id="soRes"></div>
