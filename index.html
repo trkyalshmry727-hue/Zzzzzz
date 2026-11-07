@@ -778,6 +778,9 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 .fcam{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(1.6*var(--s));display:flex;gap:6px;align-items:center;background:rgba(10,10,12,.6);padding:4px 8px;border-radius:8px;pointer-events:auto}
 .fcam small{font-size:calc(1*var(--s));opacity:.8;max-width:calc(26*var(--s))}
 #perfBox{top:calc(15.6*var(--s))}
+
+/* removed by request: Google/Apple sign-in, real-money offers, the fun menu */
+#gBtn,#appleBtn,.orl,#offerCard,#funBtn{display:none!important}
 </style>
 </head>
 <body>
@@ -960,7 +963,7 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 <div class="adscr" id="adscr"><div style="font:800 28px/1 var(--fl);color:#555;border:2px dashed #333;padding:60px 90px">AD</div><div id="adTxt" style="font:700 18px/1 var(--fa);color:#aaa"></div><button class="btn y" id="adClose" disabled>✕</button></div>
 <div id="rot"><svg viewBox="0 0 24 24" fill="none" stroke="#f3e40c" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><div data-t="rotate"></div></div>
 
-<script>window.RPMX_PACKS=[{"f":"rpmx.wasm","b":0,"i":{"tahoe.glb.gz":[0,10246514],"player.glb.gz":[10246514,2238275],"tahoe15.glb.gz":[12484789,4379895],"hilux97.glb.gz":[16864684,3007849]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx1.wasm","b":0,"i":{"hilux.glb.gz":[0,14962808],"frs_map.json":[14962808,23559]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx2.wasm","b":0,"i":{"frs_sand.jpg":[14626409,291088],"frs_terrain.bin.gz":[14917497,72498]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx3.wasm","b":0,"i":{"frs_statics.glb.gz.p0":[0,9767981],"frs_surf.bin.gz":[12775830,933206],"frs_asphalt.jpg":[13709036,238045]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx4.wasm","b":0,"i":{"frs_statics.glb.gz.p1":[0,9767980]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx5.wasm","b":0,"i":{"gmc.glb.gz":[0,9503369]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx6.wasm","b":0,"i":{"accent.glb.gz.p0":[0,9233229],"camry.glb.gz":[9233229,5539598]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx7.wasm","b":0,"i":{"accent.glb.gz.p1":[0,9233229]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx8.wasm","b":0,"i":{"shas.glb.gz.p0":[0,8731826]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx9.wasm","b":0,"i":{"shas.glb.gz.p1":[0,8731825]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx10.wasm","b":0,"i":{"sequoia.glb.gz":[0,6499181]}}];</script><script>(function(){/**
+<script>window.RPMX_PACKS=[{"f":"rpmx.wasm","b":0,"i":{"tahoe.glb.gz":[0,10246514],"player.glb.gz":[10246514,2238275],"tahoe15.glb.gz":[12484789,4379895],"hilux97.glb.gz":[16864684,3007849]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx1.wasm","b":0,"i":{"hilux.glb.gz":[0,14962808],"frs_map.json":[14962808,23559]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx2.wasm","b":0,"i":{"frs_sand.jpg":[14626409,291088],"frs_terrain.bin.gz":[14917497,72498]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx3.wasm","b":0,"i":{"frs_statics.glb.gz.p0":[0,9767981],"frs_surf.bin.gz":[12775830,933206],"frs_asphalt.jpg":[13709036,238045]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx4.wasm","b":0,"i":{"frs_statics.glb.gz.p1":[0,9767980]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx5.wasm","b":0,"i":{"gmc.glb.gz":[0,9503369]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx6.wasm","b":0,"i":{"accent.glb.gz.p0":[0,9233229],"camry.glb.gz":[9233229,5539598]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx7.wasm","b":0,"i":{"accent.glb.gz.p1":[0,9233229]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx8.wasm","b":0,"i":{"shas.glb.gz.p0":[0,8731826]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx9.wasm","b":0,"i":{"shas.glb.gz.p1":[0,8731825]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx10.wasm","b":0,"i":{"sequoia.glb.gz":[0,6499181]}},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx11.wasm","b":0,"i":{"shas06.glb.gz.p0":[0,10081554],"camry24.glb.gz":[10081554,7060796]},"opt":1},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx12.wasm","b":0,"i":{"shas06.glb.gz.p1":[0,10081553],"rub.glb.gz":[10081553,6906711]},"opt":1},{"f":"https://raw.githubusercontent.com/trkyalshmry727-hue/-RPMX/main/rpmx13.wasm","b":0,"i":{"camry03.glb.gz":[0,14596728],"gmcold.glb.gz":[14596728,6086455]},"opt":1}];</script><script>(function(){/**
  * @license
  * Copyright 2010-2024 Three.js Authors
  * SPDX-License-Identifier: MIT
@@ -9259,7 +9262,7 @@ ar: {
   rotate: 'لف جوالك بالعرض', loadingCar: 'جارِ تحميل السيارة',
   giftTitle: 'هديتك اليومية', giftGot: 'استلمت {n} رصيد', giftTomorrow: 'تعال بكرة لهدية أكبر', comeBack: 'رجعت؟ هديتك جاهزة!',
   adWatch: 'إعلان', adSkip: 'تقدر تقفله بعد {n}', adDone: 'كسبت 1,000 رصيد', noMoreAds: 'خلصت إعلانات اليوم',
-  carsCredit: 'السيارات من سيرفر تشاليح محاكي الحوادث | BeamNG.drive',
+  carsCredit: 'موديلات السيارات من صنع مجتمع المودّات، والحقوق محفوظة لأصحابها',
   photoHint: 'اسحب عشان تلف الكاميرا. الصورة تنحفظ بزر التصوير.', shot: 'التقاط', saved: 'انحفظت الصورة',
   mph_: 'ميل', kmh_: 'كم',
   myCars: 'سياراتي', carbonStore: 'متجر الكربون', carbonStoreSub: 'سيارات مقابل الكربون', paint2: 'الطلاء', wheels: 'العجلات', bodyKit: 'طقم الهيكل', stickers: 'الملصقات',
@@ -9343,7 +9346,7 @@ en: {
   rotate: 'Rotate your phone to landscape', loadingCar: 'Loading car',
   giftTitle: 'Daily gift', giftGot: 'You got {n} cash', giftTomorrow: 'Come back tomorrow for more', comeBack: 'Your gift is ready!',
   adWatch: 'Ad', adSkip: 'Close in {n}', adDone: 'You earned 1,000 cash', noMoreAds: 'No more ads today',
-  carsCredit: 'Cars from the “Tashaleeh Muhaki Al-Hawadith | BeamNG.drive” server',
+  carsCredit: 'Car models made by the modding community; all rights belong to their creators',
   photoHint: 'Drag to orbit the camera. Tap capture to save.', shot: 'Capture', saved: 'Photo saved',
   mph_: 'mph', kmh_: 'km/h',
   myCars: 'My cars', carbonStore: 'Carbon store', carbonStoreSub: 'Cars for carbon', paint2: 'Paint', wheels: 'Wheels', bodyKit: 'Body kit', stickers: 'Stickers',
@@ -9566,6 +9569,52 @@ const CARS = {
     drive: ['rwd'], tireMu: 0.88, steerMax: 37, brakeT: 3000, defDiff: 'weld',
     lights: { sigL: ['iSicehilux_signal_L', 'iSicehilux_asharh_L'], sigR: ['iSicehilux_signal_R'], tail: ['iSicehilux_redglass'],
       brake: ['iSicehilux_framl'], rev: ['iSicehilux_reverse'], head: ['iSicehilux_headlights'] },
+  },
+  camry24: {
+    id: 'camry24', name: 'TOYOTA CAMRY 2024', file: 'camry24.glb', price: 34000,
+    mass: 1560, cgH: 0.53, frontW: 0.61, hp: 203, nm: 250, top: 220,
+    torque: [[700, .55], [1000, .64], [1500, .75], [2000, .84], [2500, .9], [3000, .95], [4000, 1], [5000, .98], [5800, .92], [6300, .84], [6600, .74]],
+    idle: 700, redline: 6400, limiter: 6700,
+    gears: [3.30, 2.10, 1.50, 1.15, 0.92, 0.75], reverse: 3.2, final: 3.40,
+    drive: ['fwd'], tireMu: 1.0, steerMax: 36, brakeT: 3000,
+    lights: { sigL: ['camry24hozh_signal_L'], sigR: ['camry24hozh_signal_R'], tail: [], brake: ['camry24hozh_brake', 'camry24hozh_brakee'], rev: [], head: [] },
+  },
+  camry03: {
+    id: 'camry03', name: 'TOYOTA CAMRY 2003', file: 'camry03.glb', price: 11000,
+    mass: 1450, cgH: 0.55, frontW: 0.61, hp: 157, nm: 220, top: 200,
+    torque: [[700, .55], [1000, .65], [1500, .76], [2000, .85], [2500, .9], [3000, .95], [4000, 1], [4800, .97], [5400, .9], [5800, .82], [6200, .7]],
+    idle: 700, redline: 5900, limiter: 6200,
+    gears: [2.847, 1.552, 1.000, 0.700], reverse: 2.39, final: 3.93,
+    drive: ['fwd'], tireMu: 0.98, steerMax: 37, brakeT: 2800,
+    lights: { sigL: [], sigR: [], tail: [], brake: [], rev: [], head: ['CAMRY_2004_NOR_LOW'] },
+  },
+  shas06: {
+    id: 'shas06', name: 'TOYOTA LAND CRUISER 70 2006', file: 'shas06.glb', price: 42000, carbon: 90,
+    mass: 2200, cgH: 0.86, frontW: 0.55, hp: 200, nm: 360, top: 165,
+    torque: [[600, .58], [1000, .7], [1500, .8], [2000, .88], [2600, .95], [3200, 1], [3800, .97], [4400, .9], [4800, .82], [5200, .72]],
+    idle: 700, redline: 4800, limiter: 5100,
+    gears: [4.08, 2.29, 1.42, 1.00, 0.84], reverse: 4.22, final: 4.10,
+    drive: ['rwd', 'awd'], tireMu: 0.88, steerMax: 34, brakeT: 3800, defDiff: 'weld',
+    lights: { sigL: ['Almutairi_LC70_On_Flshr_L', 'Almutairi_LC70_Vray_Flshr_L'], sigR: ['Almutairi_LC70_On_Flshr_R', 'Almutairi_LC70_Vray_Flshr_R'],
+      tail: ['Almutairi_LC70_Redlight', 'Almutairi_LC70_Vray_Redlight'], brake: ['Almutairi_LC70_Vray_Breaks'], rev: ['Almutairi_LC70_On_Rev', 'Almutairi_LC70_Vray_rev'], head: ['Almutairi_LC70_On_Low', 'Almutairi_LC70_Vray_Low'] },
+  },
+  gmcold: {
+    id: 'gmcold', name: 'NISSAN PATROL 1997', file: 'gmcold.glb', price: 24000, carbon: 60,
+    mass: 2250, cgH: 0.84, frontW: 0.55, hp: 170, nm: 320, top: 165,
+    torque: [[600, .58], [1000, .7], [1500, .8], [2000, .9], [2800, 1], [3400, .98], [4000, .92], [4400, .84], [4800, .74]],
+    idle: 700, redline: 4600, limiter: 4900,
+    gears: [3.59, 2.06, 1.42, 1.00, 0.85], reverse: 3.93, final: 4.11,
+    drive: ['rwd', 'awd'], tireMu: 0.9, steerMax: 35, brakeT: 3800, defDiff: 'weld',
+    lights: { sigL: ['carby97_signal_L', 'Mcleod_hrh_crsignal_vry_L'], sigR: ['carby97_signal_R', 'Mcleod_hrh_crsignal_vry_R'], tail: [], brake: ['Mcleod_hrh_crbrake_vry'], rev: ['Mcleod_hrh_crevers_vry'], head: ['carby97_headlight', 'lowbeam', 'mcleod_hrh_headlight_vry'] },
+  },
+  rub: {
+    id: 'rub', name: 'TOYOTA LAND CRUISER 76 (RUB)', file: 'rub.glb', price: 52000, carbon: 90,
+    mass: 2250, cgH: 0.88, frontW: 0.56, hp: 228, nm: 360, top: 175,
+    torque: [[600, .55], [1000, .66], [1500, .76], [2000, .85], [2500, .9], [3000, .95], [3800, 1], [4400, .98], [5200, .9], [5600, .82], [6000, .72]],
+    idle: 700, redline: 5600, limiter: 5900,
+    gears: [4.313, 2.330, 1.436, 1.000, 0.838], reverse: 4.220, final: 4.10,
+    drive: ['rwd', 'awd'], tireMu: 0.9, steerMax: 34, brakeT: 4000, defDiff: 'weld',
+    lights: { sigL: ['landsg_signal_L', 'landsg_signal_Lf'], sigR: ['landsg_signal_R', 'landsg_signal_Rf'], tail: ['landsg_taillight'], brake: ['landsg_chmsl', 'landsg_taillight'], rev: ['landsg_reverselight'], head: ['landsg_headlight'] },
   },
 };
 function lerpTable(tab, x) {
@@ -9954,15 +10003,26 @@ class Vehicle {
       Tz -= this.Iz * this.r * 0.35 * kd;                            // calmer yaw while sliding
       const over = clamp((aS - 0.62) / 0.4, 0, 1) * fs; if (over > 0) Tz += this.Iz * Math.sign(vF || 1) * Math.sign(slipA) * over * 5.5; // past ~35°: pull the nose back so the drift can be caught
     }
+    // Corsa-style hajwala (like the Saudi drift games): the arrows swing the car into a smooth drift at any speed,
+    // the angle follows how long you hold the arrow, and letting go straightens it again; no spin-outs
+    if (this.hajwala && inp.assist !== false && spd > 7 && this.engineOn !== false) {
+      const g = clamp((spd - 7) / 7, 0, 1), st = clamp(this.steerIn !== undefined ? this.steerIn : inp.steer, -1, 1), hb = inp.hb > 0.1 ? 1 : 0;
+      const rDes = st * clamp(0.55 + spd * 0.03, 0.6, 1.35) * (1 + 0.25 * Math.max(0, thr)) * (1 + 0.35 * hb);
+      const bT = st * (0.3 + 0.16 * Math.max(0, thr) + 0.35 * hb) * g;   // ~17° steering only, ~26° with gas, more with the handbrake
+      const vLt = -Math.tan(clamp(bT, -0.95, 0.95)) * Math.abs(vF) * Math.sign(vF || 1);
+      Tz += this.Iz * (rDes - this.r) * 4.2 * g;
+      FxL += m * (vLt - vL) * 2.2 * g;
+      FzL += m * Math.min(Math.abs(vL), 8) * 0.5 * g * Math.max(0, thr) * Math.sign(vF || 1);   // keeps its speed while sideways
+    }
     // steering assist: on the highway, when no steering is pressed and the handbrake was not pulled, the car settles straight
     // instead of slowly sliding into the barrier (a drift started with the handbrake is left alone)
     const aS0 = Math.abs(Math.atan2(vL, Math.abs(vF) + 0.5));
     this.driftT = inp.hb > 0.1 ? 1.5 : aS0 < 0.07 ? (this.driftT || 0) - dt : (this.driftT > 0 ? Math.max(this.driftT, 0.6) : 0); this.drifting = this.driftT > 0;   // a handbrake drift lasts until the car is straight again
-    if (inp.assist && spd > 12 && Math.abs(inp.steer) < 0.05 && !this.drifting && this.engineOn !== false) {
+    if (!this.hajwala && inp.assist && spd > 12 && Math.abs(inp.steer) < 0.05 && !this.drifting && this.engineOn !== false) {
       const aS = aS0;
       if (aS < 0.4) { const k = clamp((spd - 12) / 8, 0, 1) * clamp((0.4 - aS) / 0.15, 0, 1);
         Tz -= this.Iz * this.r * 4 * k; FxL -= m * vL * 2 * k; }
-    } else if (inp.assist && spd > 16 && !this.drifting && this.engineOn !== false) {
+    } else if (!this.hajwala && inp.assist && spd > 16 && !this.drifting && this.engineOn !== false) {
       // steering held at speed: a fast corner should not turn into a spin by itself (welded trucks too)
       const aS = aS0, lim0 = this.hajwala ? 0.16 : 0.1;
       const k = clamp((aS - lim0) / 0.12, 0, 1) * clamp((spd - 16) / 8, 0, 1);
@@ -10532,6 +10592,12 @@ const MAPS = {
   city: { id: 'city', ar: 'طريق المدينة', en: 'City road', sub: ['طريق المدينة مع الكباري والزحمة', 'City road with bridges and traffic'] },
   hail: { id: 'hail', ar: 'حايل', en: 'Hail', sub: ['ماب حايل كامل', 'Full Hail map'], dir: 'hail_' },
 };
+// a car whose file is not in this upload is not offered either
+if (window.RPMX_PACKS && typeof CARS !== 'undefined') { const has = (k, opt) => { const f = CARS[k].file + '.gz'; return window.RPMX_PACKS.some(p => (opt ? p.opt : !p.opt) && (p.i[f] || p.i[f + '.p0'])); };
+  const later = {}; for (const k in CARS) { if (has(k, false)) continue; if (has(k, true)) later[k] = CARS[k]; delete CARS[k]; }
+  // cars coming in a later upload: they appear by themselves once their files are on the site
+  window.addEventListener('load', () => setTimeout(() => { for (const k in later) { const f = later[k].file + '.gz', ps = window.RPMX_PACKS.filter(p => p.opt && (p.i[f] || p.i[f + '.p0']));
+    Promise.all(ps.map(p => fetch(p.f, { method: 'HEAD' }).then(r => r.ok).catch(() => false))).then(ok => { if (ok.length && ok.every(Boolean)) CARS[k] = later[k]; }); } }, 3000)); }
 // a map whose files are not in this upload is not offered
 if (window.RPMX_PACKS) for (const k in MAPS) { const d = MAPS[k].dir; if (d && !window.RPMX_PACKS.some(p => p.i[d + 'map.json'])) delete MAPS[k]; }
 async function fetchAsset(base, onProg, est) {
@@ -10862,7 +10928,7 @@ const CAR_PAINT = {
 // each car's own colour, as in the mod's own picture (the player's paint from the paint shop still replaces it)
 const BODY_COL = { tahoe: 0xf3f3f1, sequoia: 0xefefed, gmc: 0xb9a37c, accent: 0x0f1012, camry: 0x0b0b0d, hilux: 0xf3f3f1, hilux97: 0xf3f3f1, tahoe15: 0x0d0d0f };
 // per-car repairs for mods with odd settings
-const MAT_FIX = { accent: { lowMetal: true } };            // interior was set as metal -> looked like chrome
+const MAT_FIX = { accent: { lowMetal: true }, rub: { mats: { ktm_t: { map: null, color: 0x15181c, opacity: .5 }, kn0z_blacky: { color: 0x141414 }, landsg_iT_wood: { map: null, opacity: 0 } } } };            // interior was set as metal -> looked like chrome
 const PART_FIX = { gmc: { trunk: [0, 0, -0.38] } };          // tailgate sat inside the bed
 class CarView {
   constructor(gltf, spec, cfg, opts) {
@@ -10883,7 +10949,8 @@ class CarView {
         const out = ms.map(m => {
           if (!this.mats[m.name]) { const c = m.clone(); this.mats[m.name] = c; c.envMapIntensity = 1;
             const PF = CAR_PAINT[spec.id]; if (PF && PF.mats.includes(c.name)) { c.map = null; c.metalnessMap = null; c.roughnessMap = null; c.color.setRGB(PF.c[0], PF.c[1], PF.c[2], THREE.LinearSRGBColorSpace); c.metalness = PF.m; c.roughness = PF.r; c.userData = Object.assign({}, c.userData, { paint: true }); c.needsUpdate = true; }
-            const MF = MAT_FIX[spec.id]; if (MF && MF.lowMetal && !(c.userData && c.userData.paint) && !/chrome|mirror|glass|tire|rim/i.test(c.name)) { c.metalness = Math.min(c.metalness, c.metalnessMap ? .25 : .08); c.roughness = Math.max(c.roughness, .45); }
+            const MF = MAT_FIX[spec.id]; if (MF && MF.mats && MF.mats[c.name]) { const o = MF.mats[c.name]; if ('map' in o) c.map = o.map; if (o.color !== undefined) c.color.setHex(o.color); if (o.opacity !== undefined) { c.opacity = o.opacity; c.transparent = true; } c.needsUpdate = true; }
+            if (MF && MF.lowMetal && !(c.userData && c.userData.paint) && !/chrome|mirror|glass|tire|rim/i.test(c.name)) { c.metalness = Math.min(c.metalness, c.metalnessMap ? .25 : .08); c.roughness = Math.max(c.roughness, .45); }
             if (/screen|display/i.test(c.name)) c.side = THREE.DoubleSide;
             if (c.userData && c.userData.paint && BODY_COL[spec.id] !== undefined) c.color.set(BODY_COL[spec.id]);
             if (c.userData && c.userData.skin && c.map) c.userData.skinMap = c.map;   // livery (stripes) baked with the car's own colour
@@ -14463,9 +14530,8 @@ const SCR = {
     const packs = [['20,000 CR', '+💎 10', '4.99', '11.99'], ['60,000 CR', '+💎 35', '19.99', '39.99'], ['150,000 CR', '+💎 100', '49.99', '99.99'], ['💎 300', tx('كربون', 'carbon'), '9.99', '19.99'], ['💎 1,000', tx('كربون', 'carbon'), '29.99', '59.99']];
     this.paint(this.top('store', tx('المتجر', 'Store')) + `<div class="stgrid2">
       <div class="scard free panel"><div class="notch"></div><span class="fbadge">${t('free')}</span><div class="si">${ic('gift')}</div><b>+1,000 CR</b><small>${t('freeDaily')}</small><button class="btn y sm" id="sFree" ${freeOk ? '' : 'disabled'}>${freeOk ? t('claim') : t('claimed')}</button></div>
-      ${packs.map(p => `<div class="scard panel"><div class="notch"></div><span class="disc">-${Math.round((1 - p[2] / p[3]) * 100)}%</span><div class="si">${p[0].includes('💎') ? ic('diamond') : ic('store')}</div><b dir="ltr">${p[0]}</b><small>${p[1]}</small><s>${p[3]} ${t('sar')}</s><button class="btn y sm buyp">${p[2]} ${t('sar')}</button></div>`).join('')}
       <div class="scard panel" data-go="cstore"><div class="notch"></div><div class="si">${ic('diamond')}</div><b>${tx('متجر الكربون', 'Carbon store')}</b><small>${tx('سيارات مقابل الكربون', 'Cars for carbon')}</small><span class="btn o sm">${tx('افتح', 'Open')}</span></div></div>
-      <div class="lnote">${t('payNote')}</div>`);
+      `);
     const fg = $('sFree'); if (fg) fg.onclick = () => { SAVE.storeFree = today(); SAVE.cash += 1000; persist(); this.re(); };
     $('scr').querySelectorAll('.buyp').forEach(b => b.onclick = () => UI.toast(t('payNote'), 3800));
   },
