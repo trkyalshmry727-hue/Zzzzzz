@@ -10008,10 +10008,10 @@ class Vehicle {
     }
     // Corsa-style hajwala (like the Saudi drift games): the arrows swing the car into a smooth drift at any speed,
     // the angle follows how long you hold the arrow, and letting go straightens it again; no spin-outs
-    if (this.hajwala && inp.assist !== false && spd > 7 && vF > 3 && this.engineOn !== false) {
+    if (this.hajwala && inp.assist !== false && spd > 3 && vF > 2 && this.engineOn !== false) {
       // hajwala like the reference video: the nose swings well into the slide while the car keeps travelling down the road,
       // the travel line only bends gently with the steering, and letting go brings nose and travel back together
-      const g = clamp((spd - 7) / 11, 0, 1), st = clamp(this.steerIn !== undefined ? this.steerIn : inp.steer, -1, 1), hb = inp.hb > 0.1 ? 1 : 0;
+      const g = clamp((spd - 3) / 6, 0, 1), st = clamp(this.steerIn !== undefined ? this.steerIn : inp.steer, -1, 1), hb = inp.hb > 0.1 ? 1 : 0;
       const wrap = a => Math.atan2(Math.sin(a), Math.cos(a)), H = Math.atan2(this.vx, this.vz);
       if (this.Ht === undefined || this.htOff) this.Ht = H; this.htOff = false;
       let rel = wrap(this.yaw - this.Ht);
