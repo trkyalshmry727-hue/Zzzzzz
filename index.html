@@ -966,7 +966,7 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 <div class="adscr" id="adscr"><div style="font:800 28px/1 var(--fl);color:#555;border:2px dashed #333;padding:60px 90px">AD</div><div id="adTxt" style="font:700 18px/1 var(--fa);color:#aaa"></div><button class="btn y" id="adClose" disabled>✕</button></div>
 <div id="rot"><svg viewBox="0 0 24 24" fill="none" stroke="#f3e40c" stroke-width="1.6"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><div data-t="rotate"></div></div>
 
-<script>window.RPMX_PACKS=[{"f":"rpmx.wasm","b":0,"i":{"tahoe.glb.gz":[0,10246514],"player.glb.gz":[10246514,2238275],"tahoe15.glb.gz":[12484789,4379895],"hilux97.glb.gz":[16864684,3007849]}},{"f":"rpmx11.wasm","b":0,"i":{"shas06.glb.gz.p0":[0,10081554],"camry24.glb.gz":[10081554,7060796]}},{"f":"rpmx12.wasm","b":0,"i":{"shas06.glb.gz.p1":[0,10081553],"rub.glb.gz":[10081553,6906711]}},{"f":"rpmx13.wasm","b":0,"i":{"camry03.glb.gz":[0,14596728],"gmcold.glb.gz":[14596728,6086455]}},{"f":"rpmx21.wasm","b":0,"i":{"hilux.glb.gz":[0,14962808],"accent.glb.gz.p0":[14962808,9233229],"frs_terrain.bin.gz":[24196037,72498],"frs_map.json":[24268535,23559]}},{"f":"rpmx22.wasm","b":0,"i":{"frs_statics.glb.gz.p0":[0,9767981],"frs_statics.glb.gz.p1":[9767981,9767980],"frs_surf.bin.gz":[19535961,933206],"frs_sand.jpg":[20469167,291088],"frs_asphalt.jpg":[20760255,238045]}},{"f":"rpmx23.wasm","b":0,"i":{"gmc.glb.gz":[0,9503369],"accent.glb.gz.p1":[9503369,9233229],"camry.glb.gz":[18736598,5539598]}},{"f":"rpmx24.wasm","b":0,"i":{"shas.glb.gz.p0":[0,8731826],"shas.glb.gz.p1":[8731826,8731825],"sequoia.glb.gz":[17463651,6499181]}}];</script><script>(function(){/**
+<script>window.RPMX_PACKS=[{"f":"rpmx.wasm?v=eeffe43612","b":0,"i":{"tahoe.glb.gz":[0,10246514],"player.glb.gz":[10246514,2238275],"tahoe15.glb.gz":[12484789,4379895],"hilux97.glb.gz":[16864684,3007849]}},{"f":"rpmx11.wasm?v=ed049c8d3d","b":0,"i":{"shas06.glb.gz.p0":[0,10081554],"camry24.glb.gz":[10081554,7060796]}},{"f":"rpmx12.wasm?v=f56ea0a5ad","b":0,"i":{"shas06.glb.gz.p1":[0,10081553],"rub.glb.gz":[10081553,6906711]}},{"f":"rpmx13.wasm?v=ae3a373c55","b":0,"i":{"camry03.glb.gz":[0,14596728],"gmcold.glb.gz":[14596728,6086455]}},{"f":"rpmx21.wasm?v=cf629db094","b":0,"i":{"hilux.glb.gz":[0,14962808],"accent.glb.gz.p0":[14962808,9233229],"frs_terrain.bin.gz":[24196037,72498],"frs_map.json":[24268535,23559]}},{"f":"rpmx22.wasm?v=c4e7702945","b":0,"i":{"frs_statics.glb.gz.p0":[0,9767981],"frs_statics.glb.gz.p1":[9767981,9767980],"frs_surf.bin.gz":[19535961,933206],"frs_sand.jpg":[20469167,291088],"frs_asphalt.jpg":[20760255,238045]}},{"f":"rpmx23.wasm?v=83ee57e718","b":0,"i":{"gmc.glb.gz":[0,9503369],"accent.glb.gz.p1":[9503369,9233229],"camry.glb.gz":[18736598,5539598]}},{"f":"rpmx24.wasm?v=f53d5ff118","b":0,"i":{"shas.glb.gz.p0":[0,8731826],"shas.glb.gz.p1":[8731826,8731825],"sequoia.glb.gz":[17463651,6499181]}}];</script><script>(function(){/**
  * @license
  * Copyright 2010-2024 Three.js Authors
  * SPDX-License-Identifier: MIT
@@ -10137,7 +10137,7 @@ Object.entries({ tahoe: [92, 8, 'v8'], sequoia: [85, 8, 'v8'], hilux: [80, 4, 'i
 // ===== world: Saudi highway + hajwala lot =====
 const ROAD = { half: 15.5, med: 2.5, len: 1000, fence: 21 };
 const LOT = { x0: 40, x1: 240, z0: -110, z1: 110 };
-function cnv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+function cnv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d', { willReadFrequently: true })]; }
 function rnd(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 function grain(ctx, w, h, base, amp, n, rng) {
   ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
@@ -15038,5 +15038,55 @@ Object.assign(SCR, {
   if (window.visualViewport) visualViewport.addEventListener('resize', () => { if (!document.activeElement || !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { window.scrollTo(0, 0); Game.resize(); } });
 })();
 </script>
-</body>
+<style>#offPill{position:fixed;left:50%;top:8px;transform:translateX(-50%);white-space:nowrap;z-index:60;direction:rtl;background:rgba(9,9,11,.78);color:#f4f1ea;font:600 13px/1.2 Changa,system-ui,sans-serif;padding:7px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.22);pointer-events:none}#offPill.ok{border-color:#2fd6b8;color:#2fd6b8}#offPill.run{border-color:#f3e40c}</style><script>(function () {
+  if (!('serviceWorker' in navigator) || !window.caches) return;
+  var h = location.hostname; if (location.protocol !== 'https:' && h !== 'localhost' && h !== '127.0.0.1') return;
+  var FILES = [{"f": "rpmx.wasm?v=eeffe43612", "n": 19872533}, {"f": "rpmx11.wasm?v=ed049c8d3d", "n": 17142350}, {"f": "rpmx12.wasm?v=f56ea0a5ad", "n": 16988264}, {"f": "rpmx13.wasm?v=ae3a373c55", "n": 20683183}, {"f": "rpmx21.wasm?v=cf629db094", "n": 24292094}, {"f": "rpmx22.wasm?v=c4e7702945", "n": 20998300}, {"f": "rpmx23.wasm?v=83ee57e718", "n": 24276196}, {"f": "rpmx24.wasm?v=f53d5ff118", "n": 23962832}], KEY = 'rpmx_off_ok', pill = null, hideAt = 0;
+  function say(t, cls, ms) {
+    if (!pill) { pill = document.createElement('div'); pill.id = 'offPill'; document.body.appendChild(pill); }
+    pill.textContent = t; pill.className = cls || ''; hideAt = ms ? Date.now() + ms : 0;
+  }
+  setInterval(function () { if (!pill) return; var m = document.getElementById('menu');
+    pill.style.display = (m && m.classList.contains('on') && (!hideAt || Date.now() < hideAt)) ? '' : 'none'; }, 400);
+  function pct(x) { return Math.max(0, Math.min(99, Math.floor(x * 100))) + '%'; }
+  var running = false;
+  async function sync() {
+    if (running) return; running = true;
+    try {
+      var c = await caches.open('rpmx-packs'), want = FILES.map(function (x) { return new URL(x.f, location.href).href; });
+      var keys = await c.keys(); for (var i = 0; i < keys.length; i++) if (want.indexOf(keys[i].url) < 0) await c.delete(keys[i]);
+      var total = 0, done = 0, miss = [];
+      for (var j = 0; j < FILES.length; j++) { total += FILES[j].n; if (await c.match(want[j])) done += FILES[j].n; else miss.push(j); }
+      if (!miss.length) { var first = !localStorage.getItem(KEY); try { localStorage.setItem(KEY, '1'); } catch (e) { }
+        if (first) say('✓ اللعبة جاهزة تلعبها بدون نت', 'ok', 6000); running = false; return; }
+      if (navigator.onLine === false) { say('اللعب بدون نت يكمل تجهيزه لما يرجع النت', 'wait', 6000); running = false; return; }
+      try { localStorage.removeItem(KEY); } catch (e) { }
+      say('تجهيز اللعب بدون نت ' + pct(done / total), 'run');
+      for (var k = 0; k < miss.length; k++) {
+        var x = FILES[miss[k]], ok = false;
+        for (var tr = 0; tr < 3 && !ok; tr++) {
+          try {
+            var r = await fetch(want[miss[k]], { cache: 'no-store' }); if (!r.ok) throw new Error(r.status);
+            var rd = r.body.getReader(), ch = [], got = 0;
+            for (;;) { var s = await rd.read(); if (s.done) break; ch.push(s.value); got += s.value.length; say('تجهيز اللعب بدون نت ' + pct((done + got) / total), 'run'); }
+            if (got !== x.n) throw new Error('short');
+            await c.put(want[miss[k]], new Response(new Blob(ch), { headers: { 'content-type': 'application/octet-stream', 'content-length': String(got) } }));
+            ch = null; done += x.n; ok = true;
+          } catch (e) { await new Promise(function (z) { setTimeout(z, 2000); }); }
+        }
+        if (!ok) { say('ما كمل تجهيز اللعب بدون نت، بيكمل المرة الجاية', 'wait', 8000); running = false; return; }
+      }
+      try { localStorage.setItem(KEY, '1'); } catch (e) { }
+      say('✓ اللعبة جاهزة تلعبها بدون نت', 'ok', 6000);
+    } catch (e) { say('ما قدرت أجهز اللعب بدون نت على هذا الجهاز', 'wait', 8000); }
+    running = false;
+  }
+  navigator.serviceWorker.register('sw.js').then(function () { return navigator.serviceWorker.ready; }).then(function () {
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { }
+    // start after the menu is up so it does not slow the first load
+    var w = setInterval(function () { var m = document.getElementById('menu'); if (m && m.classList.contains('on')) { clearInterval(w); setTimeout(sync, 1500); } }, 500);
+    window.addEventListener('online', function () { setTimeout(sync, 1000); });
+  }).catch(function () { });
+})();
+</script></body>
 </html>
