@@ -13,15 +13,22 @@ self.addEventListener('activate', e => {
 
 // the page: ask the site quickly (only the changes come down); if it is slow or there is no internet, open the saved copy right away
 function page(e) {
+  let gaveSaved = false;
+  const sig = r => r ? [r.headers.get('etag'), r.headers.get('last-modified'), r.headers.get('content-length')].join('|') : '';
   const net = fetch(HOME, { cache: 'no-cache' }).then(async r => {
-    if (r && r.ok) { const c = await caches.open(SHELL); await c.put(HOME, r.clone()); }
+    if (r && r.ok) {
+      const c = await caches.open(SHELL), old = await c.match(HOME), changed = !old || sig(old) !== sig(r);
+      await c.put(HOME, r.clone());
+      // the player got the older saved copy and a newer game just came down: tell the page so it refreshes itself
+      if (gaveSaved && changed) { await c.put(HOME + '?rpmx-new', new Response('1')); (await self.clients.matchAll({ type: 'window' })).forEach(w => w.postMessage({ t: 'rpmx-new' })); }
+    }
     return r;
   });
   e.waitUntil(net.catch(() => {}));
   const saved = () => caches.open(SHELL).then(c => c.match(HOME));
   return new Promise(res => {
     let done = false; const give = r => { if (!done && r) { done = true; res(r); } };
-    const t = setTimeout(() => saved().then(give), 1500);
+    const t = setTimeout(() => saved().then(r => { if (!done && r) gaveSaved = true; give(r); }), 1500);
     net.then(r => { if (r && r.ok) { clearTimeout(t); give(r); } else saved().then(s => give(s || r)); })
        .catch(() => { clearTimeout(t); saved().then(s => give(s || Response.error())); });
   });
