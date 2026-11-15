@@ -15104,6 +15104,21 @@ Object.assign(SCR, {
     navigator.serviceWorker.ready.then(function (reg) { var u = reg.scope + '?rpmx-new';
       return caches.open('rpmx-shell-v2').then(function (c) { return c.match(u).then(function (r) { if (r) { clearInterval(lk); return c.delete(u).then(function () { pending = true; tryRefresh(); }); } }); }); }).catch(function () { });
   }, 2000);
+  // version label on the main menu; tapping it pulls the newest game straight from the site
+  function verTag() {
+    var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٥ نوفمبر الساعة ٩:٠٠ م — اضغط للتحديث';
+    b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
+    document.body.appendChild(b);
+    setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
+    b.onclick = function () {
+      b.textContent = 'جاري التحديث…';
+      var go = function () { location.replace(location.pathname + '?u=' + Date.now()); };
+      (window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('rpmx-shell') === 0; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve())
+        .then(function () { return navigator.serviceWorker.getRegistration(); }).then(function (r) { return r && r.update(); }).catch(function () { }).then(go, go);
+    };
+  }
+  verTag();
   navigator.serviceWorker.register('sw.js').then(function () { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { } }).catch(function () { });
 })();
 </script></body>
