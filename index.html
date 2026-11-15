@@ -15090,6 +15090,20 @@ Object.assign(SCR, {
 <script>(function () {
   if (!('serviceWorker' in navigator)) return;
   var h = location.hostname; if (location.protocol !== 'https:' && h !== 'localhost' && h !== '127.0.0.1') return;
+  // a newer version of the game came down while the saved one was opening: refresh as soon as the player is on the main menu (never mid-drive)
+  var pending = false;
+  function tryRefresh() {
+    if (!pending) return; var m = document.getElementById('menu');
+    if (m && m.classList.contains('on') && !(window.Game && Game.mode === 'drive')) { pending = false; try { UI.toast('تحديث جديد للعبة…', 1500); } catch (e) { } setTimeout(function () { location.reload(); }, 900); }
+  }
+  navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.t === 'rpmx-new') { pending = true; tryRefresh(); } });
+  setInterval(tryRefresh, 1500);
+  // also look for the marker the helper leaves on the phone, in case its message came before the page was listening
+  var looks = 0, lk = setInterval(function () {
+    if (++looks > 90 || !window.caches) { clearInterval(lk); return; }
+    navigator.serviceWorker.ready.then(function (reg) { var u = reg.scope + '?rpmx-new';
+      return caches.open('rpmx-shell-v2').then(function (c) { return c.match(u).then(function (r) { if (r) { clearInterval(lk); return c.delete(u).then(function () { pending = true; tryRefresh(); }); } }); }); }).catch(function () { });
+  }, 2000);
   navigator.serviceWorker.register('sw.js').then(function () { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { } }).catch(function () { });
 })();
 </script></body>
