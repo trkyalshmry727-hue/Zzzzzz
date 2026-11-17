@@ -9870,7 +9870,7 @@ class Vehicle {
     let thrE = thr;
     // TCS: cut throttle on wheelspin
     const driven = this.awd ? W : this.fwd ? [W[0], W[1]] : [W[2], W[3]];
-    if (this.cfg.tcs) {
+    if (this.cfg.tcs && !(this.hajwala && this._hjG > 0)) {   // no throttle cut while doing hajwala: the car keeps pulling while sideways
       let ms = 0; for (const w of driven) ms = Math.max(ms, w.kap);
       if (ms > 0.14) thrE *= clamp(1 - (ms - 0.14) * 6, 0.05, 1);
     }
@@ -10019,13 +10019,13 @@ class Vehicle {
         let rel = wrap(this.yaw - this.Ht);
         if (Math.abs(rel) > 1.5) this.spunOut = true;                                         // past ~85°: it's a spin now
         const into = st * rel >= 0, kR = (1.15 + .55 * hb) * clamp(spd / 22, .6, 1.15);
-        const relMax = clamp(.8 - (spd - 28) * .0125, .33, .85) + .5 * hb;                       // the faster you go, the smaller the drift angle (like the video)
+        const relMax = clamp(1.45 - (spd - 35) * .03, .4, 1.45) + .4 * hb;                       // like the video: up to ~65° at 150 km/h, ~25° at 250
         const relH = Math.max(Math.abs(rel), Math.abs(wrap(this.yaw - H)));                          // angle to where the car is really going
         const relRate = Math.abs(st) > .05 ? st * kR * (into ? clamp(1 - relH / relMax, -.6, 1) : 1.6)   // counter-steer is quick
                                            : -rel * (.32 + .3 * (1 - th));                      // let go: the slide carries on and fades slowly
-        const wT = 8.5 * Math.sin(rel) / Math.max(spd, 8) * (1 - .3 * th) + st * 2 / Math.max(spd, 8);   // travel bends towards the nose
+        const wT = 6 * Math.sin(rel) / Math.max(spd, 8) * (1 - .3 * th) + st * 2 / Math.max(spd, 8);   // travel bends towards the nose
         this.Ht += wT * dt; this.Ht += wrap(H - this.Ht) * Math.min(1, dt * 1.5);
-        Tz += this.Iz * (wT + relRate - this.r) * 4.2 * g;
+        Tz += this.Iz * (wT + relRate - this.r) * 4.2 * g; this._hjRT = wT + relRate;
         const vLt = spd * Math.sin(clamp(this.Ht - this.yaw, -1.3, 1.3));
         FxL += m * (vLt - vL) * 2.4 * g;
         FzL += m * Math.min(Math.abs(vL), 10) * .12 * g * th;                                 // holds most of its speed while sideways
@@ -10048,16 +10048,18 @@ class Vehicle {
     }
     let Fwx = FxL * c + FzL * sn, Fwz = -FxL * sn + FzL * c;
     // hajwala: a real car on real tyres can't take much more than 1 g sideways, so the slide stays heavy and the car never jumps across the road
-    if (this._hjG > 0 && spd > 8) {
-      const ux = this.vx / spd, uz = this.vz / spd, fa = Fwx * ux + Fwz * uz; let fp = Fwx * uz - Fwz * ux;
-      const A = m * clamp(10.2 - (spd - 28) * .25, 3.4, 10.2); let fa2 = fa;   // at high speed the path across the road changes slowly (the body swings, the car keeps its lane)
+    const vT = Math.hypot(this.vx, this.vz);   // true speed (spd above is only the forward part)
+    if (this._hjG > 0 && vT > 8) {
+      const ux = this.vx / vT, uz = this.vz / vT, fa = Fwx * ux + Fwz * uz; let fp = Fwx * uz - Fwz * ux;
+      const A = m * clamp(10.2 - (vT - 28) * .25, 3.4, 10.2); let fa2 = fa;   // at high speed the path across the road changes slowly (the body swings, the car keeps its lane)
       // on the gas the slide only bleeds a little speed (the video loses ~3 km/h each second while weaving at 250)
-      if (brk < 0.1 && inp.hb < 0.1 && this._hjTh > 0.3) { const D = m * (0.9 + 0.6 * (1 - this._hjTh)); if (fa2 < -D) fa2 = fa2 + (-D - fa2) * this._hjG; }
+      if (brk < 0.1 && inp.hb < 0.1 && this._hjTh > 0.3) { const D = m * (0.2 + 0.9 * (1 - this._hjTh)); if (fa2 < -D) fa2 = fa2 + (-D - fa2) * this._hjG; }
       if (Math.abs(fp) > A) fp = fp + (clamp(fp, -A, A) - fp) * this._hjG;
       Fwx = fa2 * ux + fp * uz; Fwz = fa2 * uz - fp * ux;
     }
     this.vx += dt * Fwx / m; this.vz += dt * Fwz / m;
     this.r += dt * Tz / this.Iz;
+    if (this._hjG > 0 && this._hjRT !== undefined) this.r += (this._hjRT - this.r) * Math.min(1, dt * 5 * this._hjG);   // hajwala: the arrows set how fast the car swings, directly
     // low speed settle
     if (this.speed < 0.08 && thr < 0.02 && (brk > 0.1 || inp.hb > 0.1)) { this.vx *= 0.9; this.vz *= 0.9; this.r *= 0.9; }
     this.yaw += this.r * dt;
@@ -15107,7 +15109,7 @@ Object.assign(SCR, {
   // version label on the main menu; tapping it pulls the newest game straight from the site
   function verTag() {
     var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
-    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٥ نوفمبر الساعة ٩:٠٠ م — اضغط للتحديث';
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٧ نوفمبر الساعة ١٢:٣٨ ص — اضغط للتحديث';
     b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
     document.body.appendChild(b);
     setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
