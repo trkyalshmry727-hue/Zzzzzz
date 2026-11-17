@@ -784,6 +784,14 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 .frow{display:flex;align-items:center;gap:calc(1.4*var(--s));background:rgba(12,12,14,.9);border:1px solid var(--line2);padding:calc(1.1*var(--s)) calc(1.8*var(--s));margin-bottom:calc(.8*var(--s));position:relative}
 .frow::after{content:"";position:absolute;left:0;bottom:0;width:22%;height:2px;background:linear-gradient(90deg,var(--red) 0 70%,var(--teal) 70%)}
 .frow b{font:800 calc(2*var(--s))/1.2 var(--fa);color:#fff}.frow small{font:600 calc(1.5*var(--s))/1.2 var(--fa);color:var(--mut)}.frow .sp{flex:1}
+
+.msel3{position:absolute;top:calc(10*var(--s));left:calc(2.4*var(--s));right:calc(2.4*var(--s));bottom:calc(9.6*var(--s));display:grid;grid-template-columns:repeat(3,1fr);gap:calc(1.4*var(--s))}
+.mc3{padding:calc(1.1*var(--s));display:flex;flex-direction:column;cursor:pointer;min-width:0;background:#0e0e11}.mc3:not(.on){filter:brightness(.6)}
+.mc3.on{opacity:1;outline:2px solid var(--y);outline-offset:-2px;transform:translateY(calc(-.4*var(--s)))}
+.mc3 .mimg{height:calc(27*var(--s))}.mc3 .mnm{font-size:calc(2.4*var(--s))}
+.mc3 p{font:600 calc(1.45*var(--s))/1.35 var(--fa);color:#ddd;margin:0 0 calc(.6*var(--s));display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mc3 .mst{grid-template-columns:repeat(3,1fr)}.mc3 .mst b{font-size:calc(1.8*var(--s))}.mc3 .mgo b{font-size:calc(2*var(--s))}
+.mchk{position:absolute;top:calc(.8*var(--s));right:calc(.8*var(--s));width:calc(3.4*var(--s));height:calc(3.4*var(--s));display:grid;place-items:center;background:var(--y);color:#111;font:900 calc(2*var(--s))/1 var(--fl);border-radius:50%}
 </style>
 </head>
 <body>
@@ -9812,6 +9820,9 @@ class Vehicle {
     W[0].steer = Math.sign(sa) * (sa > 0 ? inner : outer); // FL inner when turning left
     W[1].steer = Math.sign(sa) * (sa > 0 ? outer : inner);
     W[2].steer = W[3].steer = 0;
+    // what you see: in a hajwala slide the front wheels point where the car is going (natural counter-steer), plus your steering
+    { let vis = sa; if (this.hajwala && (this._hjG || 0) > 0) { const sl0 = Math.atan2(vL, Math.max(Math.abs(vF), 2)); vis = clamp(sa * .35 + sl0 * this._hjG, -maxA, maxA); }
+      this.steerVisF = (this.steerVisF || 0) + (vis - (this.steerVisF || 0)) * Math.min(1, dt * 10); }
 
     // ---------- normal loads (with smoothed accel = suspension lag) ----------
     const m = this.m, h = s.cgH;
@@ -9870,7 +9881,7 @@ class Vehicle {
     let thrE = thr;
     // TCS: cut throttle on wheelspin
     const driven = this.awd ? W : this.fwd ? [W[0], W[1]] : [W[2], W[3]];
-    if (this.cfg.tcs && !(this.hajwala && this._hjG > 0)) {   // no throttle cut while doing hajwala: the car keeps pulling while sideways
+    if (this.cfg.tcs && !this.hajwala) {   // hajwala: no throttle cut, so the tyres spin up on hard throttle and keep pulling while sideways
       let ms = 0; for (const w of driven) ms = Math.max(ms, w.kap);
       if (ms > 0.14) thrE *= clamp(1 - (ms - 0.14) * 6, 0.05, 1);
     }
@@ -10003,8 +10014,9 @@ class Vehicle {
       }
       const rMax = 2.1 + spd * 0.01;
       if (fs > 0 && Math.abs(this.r) > rMax) Tz -= fs * this.Iz * (this.r - Math.sign(this.r) * rMax) * 6; // no snap spins
-      Tz -= this.Iz * this.r * 0.35 * kd;                            // calmer yaw while sliding
-      const over = clamp((aS - 0.78) / 0.4, 0, 1) * fs; if (over > 0) Tz += this.Iz * Math.sign(vF || 1) * Math.sign(slipA) * over * 5.5; // past ~35°: pull the nose back so the drift can be caught
+      const free = 1 - (this._hjG || 0);                             // while the hajwala control is on, the player holds the angle, nothing pulls it back
+      Tz -= this.Iz * this.r * 0.35 * kd * free;                     // calmer yaw while sliding
+      const over = clamp((aS - 0.78) / 0.4, 0, 1) * fs * free; if (over > 0) Tz += this.Iz * Math.sign(vF || 1) * Math.sign(slipA) * over * 5.5; // past ~35°: pull the nose back so the drift can be caught
     }
     // Corsa-style hajwala (like the Saudi drift games): the arrows swing the car into a smooth drift at any speed,
     // the angle follows how long you hold the arrow, and letting go straightens it again; no spin-outs
@@ -10013,24 +10025,39 @@ class Vehicle {
     {
       const H = Math.atan2(this.vx, this.vz), wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
       if (this.spunOut && (spd < 3 || Math.abs(wrap(this.yaw - H)) < .45)) this.spunOut = false;
-      if (this.hajwala && inp.assist !== false && spd > 8 && vF > 2 && this.engineOn !== false && !this.spunOut) {
-        const g = clamp((spd - 8) / 6, 0, 1), st = clamp(this.steerIn !== undefined ? this.steerIn : inp.steer, -1, 1), hb = inp.hb > 0.1 ? 1 : 0, th = Math.max(0, thr);
+      const vS = Math.hypot(this.vx, this.vz);   // true speed: a car that is nearly sideways is still fast
+      if (this.hajwala && inp.assist !== false && vS > 8 && vF > .5 && this.engineOn !== false && !this.spunOut) {
+        const g = clamp((vS - 8) / 6, 0, 1), st = clamp(this.steerIn !== undefined ? this.steerIn : inp.steer, -1, 1), hb = inp.hb > 0.1 ? 1 : 0, th = Math.max(0, thr);
         if (this.Ht === undefined || this.htOff) this.Ht = H; this.htOff = false;
         let rel = wrap(this.yaw - this.Ht);
         if (Math.abs(rel) > 1.5) this.spunOut = true;                                         // past ~85°: it's a spin now
-        const into = st * rel >= 0, kR = (1.15 + .55 * hb) * clamp(spd / 22, .6, 1.15);
-        const relMax = clamp(1.45 - (spd - 35) * .03, .4, 1.45) + .4 * hb;                       // like the video: up to ~65° at 150 km/h, ~25° at 250
+        const into = st * rel >= 0, kR = (1.15 + .55 * hb) * clamp(vS / 22, .6, 1.15);
+        const relMax = clamp(1.45 - (vS - 35) * .03, .4, 1.45) + .4 * hb;                       // like the video: up to ~65° at 150 km/h, ~25° at 250
         const relH = Math.max(Math.abs(rel), Math.abs(wrap(this.yaw - H)));                          // angle to where the car is really going
-        const relRate = Math.abs(st) > .05 ? st * kR * (into ? clamp(1 - relH / relMax, -.6, 1) : 1.6)   // counter-steer is quick
-                                           : -rel * (.32 + .3 * (1 - th));                      // let go: the slide carries on and fades slowly
-        const wT = 6 * Math.sin(rel) / Math.max(spd, 8) * (1 - .3 * th) + st * 2 / Math.max(spd, 8);   // travel bends towards the nose
+        // gas + steering: the rear steps out and the angle grows up to relMax; no gas: a normal grip turn (only a few degrees of slide)
+        // letting go on the gas keeps the angle (long drift, no auto-straightening); off the gas the tyres grip back and it straightens
+        // counter-steer catches the slide and, held on, flicks the car over to the other side without leaving the drift
+        const gas = clamp((th - .25) / .4, 0, 1), slideMax = .14 + (relMax - .14) * Math.max(gas, hb);
+        // the real slide angle (nose vs where the car is actually going) and how fast that direction is turning
+        const sl = wrap(this.yaw - H), Hd = this._hjPH === undefined ? 0 : wrap(H - this._hjPH) / dt; this._hjPH = H;
+        this._hjHd = (this._hjHd || 0) + (clamp(Hd, -3, 3) - (this._hjHd || 0)) * Math.min(1, dt * 12);
+        const intoR = st * sl >= 0;
+        let relRate, hold = false;
+        if (Math.abs(st) > .05) { relRate = st * kR * (intoR ? clamp(1 - Math.abs(sl) / slideMax, -.8, 1) : 1.6); this._slHold = sl; }
+        else {   // let go: remember the angle you left it at and keep it there (it only fades very slowly on the gas)
+          if (this._slHold === undefined) this._slHold = sl;
+          this._slHold *= 1 - dt * (.04 + .9 * (1 - Math.max(gas, hb)));
+          relRate = (this._slHold - sl) * 3; hold = true; }
+        const wT = 6 * Math.sin(rel) / Math.max(vS, 8) * (1 - .3 * th) + st * (2 + 2.5 * (1 - gas)) / Math.max(vS, 8);   // travel bends towards the nose; plain steering turns the car
         this.Ht += wT * dt; this.Ht += wrap(H - this.Ht) * Math.min(1, dt * 1.5);
-        Tz += this.Iz * (wT + relRate - this.r) * 4.2 * g; this._hjRT = wT + relRate;
-        const vLt = spd * Math.sin(clamp(this.Ht - this.yaw, -1.3, 1.3));
+        // the nose turns with the real travel direction plus the change you ask for, so a released drift on the gas keeps its angle
+        const rT = this._hjHd + relRate;
+        Tz += this.Iz * (rT - this.r) * 4.2 * g; this._hjRT = rT;
+        const vLt = vS * Math.sin(clamp(this.Ht - this.yaw, -1.3, 1.3));
         FxL += m * (vLt - vL) * 2.4 * g;
         FzL += m * Math.min(Math.abs(vL), 10) * .12 * g * th;                                 // holds most of its speed while sideways
         this._hjG = g; this._hjTh = th;
-      } else { this.htOff = true; this._hjG = 0; }
+      } else { this.htOff = true; this._hjG = 0; this._hjPH = undefined; this._slHold = undefined; }
     }
     // steering assist: on the highway, when no steering is pressed and the handbrake was not pulled, the car settles straight
     // instead of slowly sliding into the barrier (a drift started with the handbrake is left alone)
@@ -10059,7 +10086,7 @@ class Vehicle {
     }
     this.vx += dt * Fwx / m; this.vz += dt * Fwz / m;
     this.r += dt * Tz / this.Iz;
-    if (this._hjG > 0 && this._hjRT !== undefined) this.r += (this._hjRT - this.r) * Math.min(1, dt * 5 * this._hjG);   // hajwala: the arrows set how fast the car swings, directly
+    if (this._hjG > 0 && this._hjRT !== undefined) this.r += (this._hjRT - this.r) * Math.min(1, dt * 16 * this._hjG);   // hajwala: the arrows set how fast the car swings, directly
     // low speed settle
     if (this.speed < 0.08 && thr < 0.02 && (brk > 0.1 || inp.hb > 0.1)) { this.vx *= 0.9; this.vz *= 0.9; this.r *= 0.9; }
     this.yaw += this.r * dt;
@@ -11015,6 +11042,8 @@ async function fetchCar(spec, onProg) {
   CAR_CACHE[spec.id] = gltf; return gltf;
 }
 // body paint for cars whose mod paints the body on its second material layer: colour from each car's own config (so every car keeps its real colour)
+// cars whose body paint part is only marked (their look stays exactly as it is until you pick a colour)
+const PAINT_MARK = { camry03: ['CAMRY_2004_body'], rub: ['landsg'], shas06: ['Almutairi_LC70_Color'], gmcold: ['carby97'] };
 const CAR_PAINT = {
   camry: { mats: ['camry_prim'], c: [0, 0, 0], m: 1, r: .55 },
   hilux: { mats: ['KHW_PAINT'], c: [.9, .9, .89], m: .2, r: .28 },
@@ -11025,7 +11054,7 @@ const CAR_PAINT = {
 // each car's own colour, as in the mod's own picture (the player's paint from the paint shop still replaces it)
 const BODY_COL = { tahoe: 0xf3f3f1, sequoia: 0xefefed, gmc: 0xb9a37c, accent: 0x0f1012, camry: 0x0b0b0d, hilux: 0xf3f3f1, hilux97: 0xf3f3f1, tahoe15: 0x0d0d0f };
 // per-car repairs for mods with odd settings
-const MAT_FIX = { accent: { lowMetal: true }, camry03: { mats: { CAMRY_2004_glass_nykl: { color: 0x2a2e33, opacity: .3, glass: 1 } } }, shas06: { mats: { Almutairi_LC70_Glass_Paint: { color: 0x30343a, opacity: .32, glass: 1 }, Almutairi_LC70_Glass_Paint2: { color: 0x30343a, opacity: .32, glass: 1 } } }, gmcold: { mats: { Mcleod_hrh_chrome_ns_tint: { opacity: .38, glass: 1 } } }, rub: { mats: { ktm_t: { map: null, color: 0x15181c, opacity: .5, glass: 1 }, kn0z_blacky: { color: 0x141414 }, landsg_iT_wood: { map: null, opacity: 0 } } } };            // interior was set as metal -> looked like chrome
+const MAT_FIX = { accent: { lowMetal: true }, camry03: { mats: { CAMRY_2004_glass_nykl: { color: 0x2a2e33, opacity: .3, glass: 1 } } }, shas06: { mats: { Almutairi_LC70_Glass_Paint: { color: 0x30343a, opacity: .32, glass: 1 }, Almutairi_LC70_Glass_Paint2: { color: 0x30343a, opacity: .32, glass: 1 } } }, gmcold: { mats: { Mcleod_hrh_chrome_ns_tint: { opacity: .38, glass: 1 } } }, rub: { mats: { landsg_tjled: { hide: 1 }, ktm_t: { map: null, color: 0x15181c, opacity: .5, glass: 1 }, kn0z_blacky: { color: 0x141414 }, landsg_iT_wood: { map: null, opacity: 0 } } } };            // interior was set as metal -> looked like chrome
 const PART_FIX = { gmc: { trunk: [0, 0, -0.38] } };          // tailgate sat inside the bed
 class CarView {
   constructor(gltf, spec, cfg, opts) {
@@ -11046,7 +11075,8 @@ class CarView {
         const out = ms.map(m => {
           if (!this.mats[m.name]) { const c = m.clone(); this.mats[m.name] = c; c.envMapIntensity = 1;
             const PF = CAR_PAINT[spec.id]; if (PF && PF.mats.includes(c.name)) { c.map = null; c.metalnessMap = null; c.roughnessMap = null; c.color.setRGB(PF.c[0], PF.c[1], PF.c[2], THREE.LinearSRGBColorSpace); c.metalness = PF.m; c.roughness = PF.r; c.userData = Object.assign({}, c.userData, { paint: true }); c.needsUpdate = true; }
-            const MF = MAT_FIX[spec.id]; if (MF && MF.mats && MF.mats[c.name]) { const o = MF.mats[c.name]; if ('map' in o) c.map = o.map; if (o.color !== undefined) c.color.setHex(o.color); if (o.opacity !== undefined) { c.opacity = o.opacity; c.transparent = true; } c.needsUpdate = true; }
+            const PM = PAINT_MARK[spec.id]; if (PM && PM.includes(c.name)) c.userData = Object.assign({}, c.userData, { paint: true }, spec.id === 'gmcold' && c.map ? { skinMap: c.map } : {});
+            const MF = MAT_FIX[spec.id]; if (MF && MF.mats && MF.mats[c.name]) { const o = MF.mats[c.name]; if (o.hide) c.visible = false; if ('map' in o) c.map = o.map; if (o.color !== undefined) c.color.setHex(o.color); if (o.opacity !== undefined) { c.opacity = o.opacity; c.transparent = true; } c.needsUpdate = true; }
             if (MF && MF.lowMetal && !(c.userData && c.userData.paint) && !/chrome|mirror|glass|tire|rim/i.test(c.name)) { c.metalness = Math.min(c.metalness, c.metalnessMap ? .25 : .08); c.roughness = Math.max(c.roughness, .45); }
             if (/screen|display/i.test(c.name)) c.side = THREE.DoubleSide;
             if (c.userData && c.userData.paint && BODY_COL[spec.id] !== undefined) c.color.set(BODY_COL[spec.id]);
@@ -11427,7 +11457,7 @@ class CarView {
     const map = { FL: W[0], FR: W[1], RL: W[2], RR: W[3] };
     for (const k in this.wheels) {
       const wv = this.wheels[k], ph = map[k];
-      wv.piv.rotation.y = ph.steer;
+      wv.piv.rotation.y = (k === 'FL' || k === 'FR') && veh.steerVisF !== undefined && veh.hajwala && (veh._hjG || 0) > 0 ? veh.steerVisF : ph.steer;
       wv.spin.rotation.x = ph.rot;
       // visual suspension: wheel follows ground while body leans -> raise/lower pivot slightly
       const side = wv.base.center[0], fz = wv.base.center[2];
@@ -11706,6 +11736,12 @@ class Sound {
     for (const w of v.wheels) { const s = Math.max(0, w.slipV - 1.5); if (w.surf === 'sand') sand += Math.min(1, v.speed / 15) * .25 + s * .02; else sq += Math.min(1, s / 9) * (w.Fz / 7000); }
     sq = Math.min(1, sq / 1.6);
     this.sqG.gain.setTargetAtTime(mute ? 0 : sq * .55, t, .05);
+    { // the squeal changes with the slide angle and the speed: wider and faster = higher, rougher
+      const fw = v.vx * Math.sin(v.yaw) + v.vz * Math.cos(v.yaw), lt = v.vx * Math.cos(v.yaw) - v.vz * Math.sin(v.yaw);
+      const ang = Math.min(1.2, Math.abs(Math.atan2(lt, Math.abs(fw) + .5))), sp = Math.min(70, v.speed);
+      this.sq1.frequency.setTargetAtTime(900 + ang * 420 + sp * 4, t, .1);
+      this.sq2.frequency.setTargetAtTime(1450 + ang * 520 + sp * 6, t, .1);
+      this.sqLfo.frequency.setTargetAtTime(5 + ang * 9, t, .15); }
     this.sq1.Q.value = 6 + sq * 6;
     this.sandG.gain.setTargetAtTime(mute ? 0 : Math.min(.5, sand), t, .08);
     this.windG.gain.setTargetAtTime(mute ? 0 : Math.min(.35, v.speed * v.speed / 5000), t, .2);
@@ -13327,7 +13363,7 @@ const Game = {
           const dust = w.surf === 'sand';
           const th = i < 2 ? 6.5 : 3.2;   // tyre smoke mostly from the rear wheels; fronts only when they really slide
           if ((sv > th && w.Fz > 500) || (dust && v.speed > 4)) {
-            const em = dust ? Math.min(2, v.speed / 10 + sv / 8) : Math.min(2.2, (sv - th + .2) / 4) * (i < 2 ? .5 : 1) * (v.hajwala ? .5 : 1);   // hajwala: light smoke, the skid marks do the talking (like the reference)
+            const em = dust ? Math.min(2, v.speed / 10 + sv / 8) : Math.min(2.2, (sv - th + .2) / 4) * (i < 2 ? (v.hajwala ? .3 : .5) : 1) * (v.hajwala ? .85 : 1);   // hajwala: light smoke, the skid marks do the talking (like the reference)
             for (let k = 0; k < em * dtR * 60; k++) if (Math.random() < .7) this.smoke.emit(w.gx, .25 + (v.py || 0), w.gz, v.vx, v.vz, Math.min(1, sv / 14), dust);
           }
           if (sv > 2.6 && !dust && w.Fz > 300 && v.py <= (this.world.heightAt ? this.world.heightAt(w.gx, w.gz, v.py) + .05 : 1)) this.skids.add(i, w.gx, w.gz, 0, 0, Math.min(1, (sv - 2.6) / 7) * .7, v.py || 0); else this.skids.cut(i);
@@ -14790,16 +14826,24 @@ Object.assign(SCR, {
     { id: 'weekly', t: ['الحدث الأسبوعي', 'Weekly event'], d: ['25,000 نقطة خلال 120 ثانية', '25,000 points in 120 s'], time: 120, lot: true },
   ],
   v_mapsel() {
+    // the three maps side by side, always in the same order; tap one to pick it (it lights up), tap it again or «التالي» to go on
     const ids = Object.keys(MAPS).filter(i => this.MAPINFO[i]), want = this.mapSel || SAVE.map || 'frs', sel = ids.includes(want) ? want : ids[0]; this.mapSel = sel;
-    const ms = (SAVE.mapStats || {})[sel] || {}, I = this.MAPINFO[sel], img = id => (typeof MAPTHUMBS !== 'undefined' && MAPTHUMBS[id]) ? `<img src="${MAPTHUMBS[id]}" alt="">` : '';
-    this.paint(this.top('road', tx('اختيار الطور', 'Choose mode')) + `<div class="msel"><div class="mbig panel" data-mp="${sel}"><div class="notch"></div><div class="mimg">${img(sel)}<span class="bdg t">${tx(I.tag, 'Free roam')}</span><b class="mno">${String(ids.indexOf(sel) + 1).padStart(2, '0')}</b></div>
+    const img = id => (typeof MAPTHUMBS !== 'undefined' && MAPTHUMBS[id]) ? `<img src="${MAPTHUMBS[id]}" alt="">` : '';
+    const card = (id, k) => { const I = this.MAPINFO[id], ms = (SAVE.mapStats || {})[id] || {};
+      return `<div class="mc3 panel${id === sel ? ' on' : ''}" data-mp="${id}"><div class="notch"></div><div class="mimg">${img(id)}<span class="bdg ${id === sel ? 't' : 'o'}">${tx(I.tag, 'Free roam')}</span><b class="mno">${String(k + 1).padStart(2, '0')}</b>${id === sel ? `<span class="mchk">✓</span>` : ''}</div>
       <div class="mnm">${I.n}</div><p>${tx(I.d[0], I.d[1])}</p>
-      <div class="mst"><div><small>${tx('رقمك القياسي', 'Your record')}</small><b>${Math.round(ms.top || 0)} ${t('kmh_')}</b><small>${tx('السرعة القصوى', 'Top speed')}</small></div><div><b>${((ms.dist || 0) / 1000).toFixed(1)} ${tx('كم', 'km')}</b><small>${tx('المسافة', 'Distance')}</small></div><div><b>${Math.round((ms.time || 0) / 60)} ${tx('د', 'min')}</b><small>${tx('الوقت', 'Time')}</small></div><div class="g"><small>${tx('عدد المرات', 'Plays')}: ${ms.plays || 0}</small></div></div>
-      <div class="mgo"><span><small>${tx('مجاناً', 'Free')}</small><b>${tx('انطلق', 'Go')} ›</b></span><span><small>${tx('مقترح', 'Suggested')}</small><b>${tx('أي سيارة', 'Any car')}</b></span></div><div class="brk"></div></div>
-      <div class="mlist2">${ids.filter(i => i !== sel).map((id, k) => `<div class="mcard2" data-mp="${id}"><div class="mimg">${img(id)}<span class="bdg o">${tx(this.MAPINFO[id].tag, 'Free roam')}</span><b class="mno">${String(ids.indexOf(id) + 1).padStart(2, '0')}</b></div><div class="mnm">${this.MAPINFO[id].n}</div><div class="mgo"><b>${tx('أي سيارة', 'Any car')}</b><small>${tx('انطلق', 'Go')} ›</small></div></div>`).join('')}</div></div>
+      <div class="mst"><div><b>${Math.round(ms.top || 0)} ${t('kmh_')}</b><small>${tx('أعلى سرعة', 'Top speed')}</small></div><div><b>${((ms.dist || 0) / 1000).toFixed(1)} ${tx('كم', 'km')}</b><small>${tx('المسافة', 'Distance')}</small></div><div><b>${ms.plays || 0}</b><small>${tx('مرات', 'Plays')}</small></div></div>
+      <div class="mgo"><span><small>${tx('مجاناً', 'Free')}</small><b>${id === sel ? tx('انطلق', 'Go') + ' ›' : tx('اختيار', 'Pick')}</b></span><span><small>${tx('مقترح', 'Suggested')}</small><b>${tx('أي سيارة', 'Any car')}</b></span></div><div class="brk"></div></div>`; };
+    this.paint(this.top('road', tx('اختيار الطور', 'Choose mode')) + `<div class="msel3">${ids.map(card).join('')}</div>
       <div class="pbtns"><span class="sp"></span><button class="btn y" id="msNext">${tx('التالي', 'Next')}</button></div>`);
-    $('scr').querySelectorAll('.mcard2[data-mp]').forEach(b => b.onclick = () => { this.mapSel = b.dataset.mp; SAVE.map = this.mapSel; persist(); this.re(); });
-    $('scr').querySelector('.mbig').onclick = () => this.open('modes');
+    $('scr').querySelectorAll('.mc3[data-mp]').forEach(b => b.onclick = () => {
+      if (b.dataset.mp === this.mapSel) return this.open('modes');
+      this.mapSel = b.dataset.mp; SAVE.map = this.mapSel; persist();
+      $('scr').querySelectorAll('.mc3').forEach(c => { const on = c.dataset.mp === this.mapSel; c.classList.toggle('on', on);
+        const bd = c.querySelector('.bdg'); if (bd) bd.className = 'bdg ' + (on ? 't' : 'o');
+        const ck = c.querySelector('.mchk'); if (on && !ck) c.querySelector('.mimg').insertAdjacentHTML('beforeend', '<span class="mchk">✓</span>'); if (!on && ck) ck.remove();
+        const go = c.querySelector('.mgo span b'); if (go) go.textContent = on ? tx('انطلق', 'Go') + ' ›' : tx('اختيار', 'Pick'); });
+    });
     $('msNext').onclick = () => this.open('modes');
   },
   v_modes() {
@@ -15109,7 +15153,7 @@ Object.assign(SCR, {
   // version label on the main menu; tapping it pulls the newest game straight from the site
   function verTag() {
     var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
-    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٧ نوفمبر الساعة ١٢:٣٨ ص — اضغط للتحديث';
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٨ نوفمبر الساعة ١٢:٥٥ ص — اضغط للتحديث';
     b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
     document.body.appendChild(b);
     setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
