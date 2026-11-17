@@ -792,6 +792,18 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 .mc3 p{font:600 calc(1.45*var(--s))/1.35 var(--fa);color:#ddd;margin:0 0 calc(.6*var(--s));display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .mc3 .mst{grid-template-columns:repeat(3,1fr)}.mc3 .mst b{font-size:calc(1.8*var(--s))}.mc3 .mgo b{font-size:calc(2*var(--s))}
 .mchk{position:absolute;top:calc(.8*var(--s));right:calc(.8*var(--s));width:calc(3.4*var(--s));height:calc(3.4*var(--s));display:grid;place-items:center;background:var(--y);color:#111;font:900 calc(2*var(--s))/1 var(--fl);border-radius:50%}
+
+.scard.wal{grid-column:span 2;align-items:stretch;text-align:right;gap:calc(.8*var(--s));background:linear-gradient(135deg,rgba(243,228,12,.12),rgba(14,14,17,.92))}
+.walTop small{display:block;font:700 calc(1.6*var(--s))/1.2 var(--fa);color:#ccc}.walTop b{font:900 calc(4.2*var(--s))/1.1 var(--fl);color:var(--y)}.walTop b i{font:800 calc(1.9*var(--s))/1 var(--fa);font-style:normal;color:#fff}
+.walRow{display:flex;gap:calc(.8*var(--s))}.walRow input{flex:1;min-width:0;background:#0b0b0e;border:1px solid var(--line2);color:#fff;font:800 calc(2.2*var(--s))/1 var(--fl);letter-spacing:.2em;text-align:center;padding:calc(.9*var(--s));outline:none}.walRow input:focus{border-color:var(--y)}.walRow .btn{width:auto;margin:0;padding-inline:calc(2.4*var(--s))}
+.walMsg{font:700 calc(1.5*var(--s))/1.3 var(--fa);color:#ccc;min-height:1.3em}.walMsg.ok{color:#37e07a}.walMsg.er{color:#ff6b6b}
+.scard.vip{border-color:var(--y);box-shadow:inset 0 0 0 1px rgba(243,228,12,.5)}.scard .vipb{background:var(--y);color:#111}
+.ccConf{position:absolute;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:20}.ccConf.on{display:flex}
+.ccConf>.panel{width:min(90%,calc(56*var(--s)));padding:calc(2.4*var(--s));display:flex;flex-direction:column;gap:calc(1.2*var(--s));text-align:center}
+.ccConf b{font:900 calc(2.8*var(--s))/1.3 var(--fa)}.ccConf small{font:600 calc(1.7*var(--s))/1.4 var(--fa);color:#ddd}.ccBtns{display:flex;gap:calc(1*var(--s))}.ccBtns .btn{flex:1}
+.ccConf.payAsk{position:fixed;z-index:400}
+.ccard .pr.sar{color:var(--y)}
+.bdg.y{background:var(--y);color:#111}
 </style>
 </head>
 <body>
@@ -12200,6 +12212,34 @@ setTimeout(() => { try { if (Net.p2p() && SAVE.name) Net.connect().catch(() => {
 
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Relay.room && !Relay.ok) Relay.lost(); });
 
+// ===== player names are unique: the first phone to take a name keeps it (a lasting note on the public relay) =====
+const NameReg = {
+  me() { if (!SAVE.devId) { SAVE.devId = 'd' + P2P.rnd(12); persist(); } return SAVE.devId; },
+  topic(n) { return 'nm/' + Relay.key(n); },
+  low(n) { return String(n || '').trim().toLowerCase(); },
+  // 'free' | 'mine' | 'taken' | 'off' (no internet)
+  async look(n, ms) {
+    try { await Promise.race([Relay.connect(), new Promise((_, rej) => setTimeout(() => rej(new Error('to')), 7000))]); } catch (e) { return 'off'; }
+    let got = null; const off = Relay.on(this.topic(n), d => { got = d; });
+    await new Promise(r => setTimeout(r, ms || 1800)); off();
+    if (!got || !got.owner) return 'free'; return got.owner === this.me() ? 'mine' : 'taken';
+  },
+  claim(n) { Relay.pub(this.topic(n), { owner: this.me(), name: String(n).trim(), t: Date.now() }, true); SAVE.nameOwned = this.low(n); persist(); },
+  release(n) { if (Relay.ok) Relay.pub(this.topic(n), null, true); },
+  // on start: make sure the name on this phone is really this phone's
+  async ensure() {
+    if (this._busy || !SAVE.name) return; this._busy = true;
+    try {
+      const n = SAVE.name, st = await this.look(n);
+      if (st === 'off') return;
+      if (st === 'free' || st === 'mine') { this.claim(n); return; }
+      if (SAVE.nameOwned === this.low(n)) return;   // it was ours first; keep it
+      UI.toast(tx('اسمك «', 'The name “') + n + tx('» صار مستخدم عند لاعب ثاني، اختر اسم جديد', '” is taken by another player, pick a new one'), 5000);
+      setTimeout(() => UI.nameDialog(), 600);
+    } finally { this._busy = false; }
+  },
+};
+
 // ===== simulation layer: engine & condition HUD, fuel stations, car wash, jobs, weather, walking, steering wheel, camera orbit =====
 const SIM = {
   walking: false, job: null, stations: [], washes: [], wx: null, orbit: { yaw: 0, pitch: 0, t: 0 },
@@ -13574,7 +13614,8 @@ const UI = {
   },
   // ---------------- menu ----------------
   enterMenu() {
-    if (!this._offT) { this._offT = 1; setTimeout(() => offlineSync(), 4000); window.addEventListener('online', () => setTimeout(() => offlineSync(), 2000)); }
+    if (!this._offT) { this._offT = 1; setTimeout(() => offlineSync(), 4000); window.addEventListener('online', () => setTimeout(() => offlineSync(), 2000));
+      setTimeout(() => NameReg.ensure().finally(() => GIFTS.check()), 2500); setInterval(() => GIFTS.check(), 5 * 60000); }
     this.dailyRoll();
     Game.showGarageCar(SAVE.car);
     this.showMenu();
@@ -13587,7 +13628,7 @@ const UI = {
     if (!this.menuBound) this.bindMenu();
   },
   refreshTop() {
-    if (SAVE.settings.infMoney) { SAVE.cash = Math.max(SAVE.cash, 999999999); SAVE.carbon = Math.max(SAVE.carbon, 999999); }
+    if (SAVE.settings.infMoney) setInfMoney(false);   // infinite money is gone: back to the real balance
     $('cashV').textContent = fmt(SAVE.cash); $('carbonV').textContent = fmt(SAVE.carbon);
     const nm = (SAVE.name || 'DRIVER').toUpperCase(); $('pnameV').textContent = nm; $('avL').firstChild.textContent = nm[0];
     $('lvlV').textContent = this.level(); $('hCash').textContent = fmt(SAVE.cash);
@@ -13857,7 +13898,16 @@ const UI = {
       $('nmOk').disabled = !r.every(Boolean); };
     inp.oninput = upd; upd();
     $('nmDice').onclick = () => { const a = ['FALCON', 'SAQR', 'NAJDI', 'HAJWALJI', 'TURBO', 'DRIFTER', 'ROYAL', 'DESERT', 'NIGHT', 'RIYADH']; inp.value = a[Math.floor(Math.random() * a.length)] + Math.floor(Math.random() * 99); upd(); };
-    $('nmOk').onclick = () => { SAVE.name = inp.value; persist(); this.closeModal(); this.refreshTop(); onDone && onDone(); };
+    // the name has to be free: ask the relay before saving it
+    $('nmOk').onclick = async () => { const v = inp.value.trim(), ok = $('nmOk'), old = SAVE.name;
+      if (NameReg.low(v) === NameReg.low(old) && SAVE.nameOwned === NameReg.low(v)) { this.closeModal(); onDone && onDone(); return; }
+      ok.disabled = true; ok.textContent = tx('لحظة… نتأكد من الاسم', 'Checking the name…');
+      const st = await NameReg.look(v);
+      ok.textContent = t('confirm');
+      if (st === 'taken') { ok.disabled = false; $('nmRules').insertAdjacentHTML('afterbegin', `<div style="font:800 calc(2*var(--s))/1.6 var(--fa);color:#ff6b6b">✗ ${tx('هذا الاسم مستخدم، اختر اسم ثاني', 'This name is taken, pick another')}</div>`); return; }
+      if (old && SAVE.nameOwned === NameReg.low(old) && NameReg.low(old) !== NameReg.low(v)) NameReg.release(old);
+      SAVE.name = v; if (st === 'off') SAVE.nameOwned = null; else NameReg.claim(v);
+      persist(); this.closeModal(); this.refreshTop(); onDone && onDone(); };
   },
   settings() {
     let tab = 'g';
@@ -13877,7 +13927,6 @@ const UI = {
       if (tab === 'l') body = `<div class="langs">${LANGS.map(([c, n]) => `<div class="card${c === LANG ? ' sel' : ''}" data-l="${c}"><div class="chk">✓</div><div class="n">${n}</div></div>`).join('')}</div>`;
       if (tab === 'a') body = `<div class="mrow"><span style="flex:1">${SAVE.account && !SAVE.account.guest ? SAVE.account.email : t('guest')}</span><button class="btn o sm" id="logout">${t('logout')}</button></div>
         <div class="mrow"><span style="flex:1">${t('ads')}</span><div class="opts"><span class="opt${SAVE.adsConsent ? ' on' : ''}" data-ad="1">${t('allow')}</span><span class="opt${!SAVE.adsConsent ? ' on' : ''}" data-ad="0">${t('noThanks')}</span></div></div>
-        <div class="mrow"><span style="flex:1">${tx('فلوس لانهائية', 'Infinite money')}</span><div class="opts"><span class="opt${S.infMoney ? ' on' : ''}" data-im="1">${t('on')}</span><span class="opt${!S.infMoney ? ' on' : ''}" data-im="0">${t('off')}</span></div></div>
         <div class="mrow"><span style="flex:1">الحفظ: ${typeof CLOUD !== 'undefined' && CLOUD.ref ? 'في حسابك (يبقى لو طلعت)' : 'في جوالك'}</span><button class="btn o sm" id="sCopy">نسخ رمز الحفظ</button><button class="btn o sm" id="sLoad">استرجاع برمز</button></div>
         <div class="mrow" id="sBox" style="display:none"><textarea id="sCode" style="flex:1;height:5em;font-size:16px;direction:ltr" placeholder="الصق رمز الحفظ هنا"></textarea><button class="btn y sm" id="sGo">استرجاع</button></div>
         <div class="mrow"><span style="flex:1">${t('resetData')}</span><button class="btn o sm" id="wipe">${t('resetData')}</button></div>`;
@@ -14052,6 +14101,47 @@ const UI = {
 // ===== RPMX-style full screens over the garage (cars, upgrades, tuning, paint, wheels, kit, stickers, progress, social, online, store) =====
 const tx = (a, e) => (LANG === 'ar' ? a : e);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// ================= محفظة RPMX (تطبيق cc) =================
+// the cc wallet app lives on the same site (/cc/), so it shares this storage: same key, same format, same log
+const CCW = {
+  KEY: 'cc_wallet', SALT: 'cc-rpmx-2026', H: null,
+  CARS: { rub: 1000, shas06: 700, gmcold: 500, camry24: 300 },   // cars sold only for wallet riyals
+  ar(n) { return Number(n).toLocaleString('ar-SA'); },
+  PACKS: [
+    { id: 'm10', p: 10, cash: 50000, n: ['فلوس ٥٠ ألف', '50,000 CR'], d: ['٥٠ ألف ريال لعبة', '50,000 CR'] },
+    { id: 'm50', p: 50, cash: 300000, n: ['فلوس ٣٠٠ ألف', '300,000 CR'], d: ['٣٠٠ ألف ريال لعبة', '300,000 CR'] },
+    { id: 'm100', p: 100, cash: 700000, n: ['فلوس ٧٠٠ ألف', '700,000 CR'], d: ['٧٠٠ ألف ريال لعبة', '700,000 CR'] },
+    { id: 'c10', p: 10, carbon: 100, n: ['كربون ١٠٠', '100 carbon'], d: ['💎 ١٠٠ كربون', '💎 100 carbon'] },
+    { id: 'c50', p: 50, carbon: 600, n: ['كربون ٦٠٠', '600 carbon'], d: ['💎 ٦٠٠ كربون', '💎 600 carbon'] },
+    { id: 'c100', p: 100, carbon: 1500, n: ['كربون ١٥٠٠', '1,500 carbon'], d: ['💎 ١٥٠٠ كربون', '💎 1,500 carbon'] },
+    { id: 'cars', p: 1000, cars: true, vip: true, n: ['كل السيارات', 'Every car'], d: ['تفتح لك كل سيارات اللعبة مرة وحدة', 'Unlocks every car in the game'] },
+    { id: 'king', p: 1000, cash: 10000000, carbon: 10000, vip: true, n: ['حزمة الملك', 'King pack'], d: ['١٠ مليون ريال لعبة + 💎١٠ آلاف', '10,000,000 CR + 💎10,000'] },
+  ],
+  load() { try { const w = JSON.parse(localStorage.getItem(this.KEY)); if (w && typeof w.balance === 'number') return Object.assign({ used: [], log: [] }, w); } catch (e) { } return { balance: 0, used: [], log: [] }; },
+  save(w) { try { localStorage.setItem(this.KEY, JSON.stringify(w)); } catch (e) { } },
+  now() { try { return new Date().toLocaleString('ar-SA', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } },
+  // the code list is read from the wallet app itself, so a code added there works here too (kept for when there is no internet)
+  async codes() {
+    if (this.H) return this.H;
+    try { const r = await fetch('/cc/?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) { const s = await r.text(), m = s.match(/const H=(\{[^}]*\})/), sm = s.match(/SALT="([^"]+)"/);
+      if (m) { this.H = JSON.parse(m[1]); if (sm) this.SALT = sm[1]; try { localStorage.setItem('cc_codes_cache', JSON.stringify({ H: this.H, S: this.SALT })); } catch (e) { } return this.H; } } } catch (e) { }
+    try { const c = JSON.parse(localStorage.getItem('cc_codes_cache')); if (c && c.H) { this.H = c.H; this.SALT = c.S || this.SALT; return this.H; } } catch (e) { }
+    return null;
+  },
+  async sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); },
+  async redeem(raw) {
+    const c = String(raw || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, '');
+    if (c.length !== 7) return { err: tx('الكود لازم يكون ٧ أرقام', 'The code must be 7 digits') };
+    const H = await this.codes(); if (!H) return { err: tx('ما قدرت أوصل للأكواد، تأكد من النت وجرب مرة ثانية', 'Could not reach the codes, check your internet') };
+    if (!(window.crypto && crypto.subtle)) return { err: tx('جهازك ما يدعم الشحن هنا، اشحن من تطبيق المحفظة', 'Top up from the wallet app') };
+    const h = await this.sha(this.SALT + c);
+    if (!(h in H)) return { err: '❌ ' + tx('الكود غلط', 'Wrong code') };
+    const w = this.load(); if (w.used.includes(h)) return { err: '⚠️ ' + tx('هذا الكود مستخدم من قبل', 'This code was already used') };
+    w.balance += H[h]; w.used.push(h); w.log.push({ t: 'شحن كود', a: H[h], d: this.now() }); this.save(w);
+    return { ok: true, amount: H[h] };
+  },
+  spend(price, what) { const w = this.load(); if (w.balance < price) return false; w.balance -= price; w.log.push({ t: 'شراء: ' + what + ' (RPMX)', a: -price, d: this.now() }); this.save(w); return true; },
+};
 const IC = {
   back: '<path d="M15 5l-7 7 7 7M8 12h13"/>', camera: '<path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/>', car: '<path d="M3 15l2-6h14l2 6v4H3z"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/>',
   engine: '<path d="M5 9h3l1-2h5l1 2h3v9H5zM2 12h3M19 12h3M10 12l2-3 1 3h2l-3 4 1-3z"/>', intake: '<path d="M3 12h7M3 8h5M3 16h5"/><circle cx="16" cy="12" r="5"/><path d="M16 9v6M13 12h6"/>',
@@ -14119,9 +14209,24 @@ const SCR = {
   },
   money(n, carbon) { return carbon ? `💎 ${fmt(n)}` : `CR ${fmt(n)}`; },
   pay(cost, carbon) {
-    if (carbon) { if (SAVE.carbon < cost) { UI.toast(t('notEnoughC')); return false; } SAVE.carbon -= cost; }
-    else { if (SAVE.cash < cost) { UI.toast(t('notEnough')); return false; } SAVE.cash -= cost; }
+    if (carbon ? SAVE.carbon < cost : SAVE.cash < cost) { UI.toast(t(carbon ? 'notEnoughC' : 'notEnough')); return false; }
+    // every purchase asks first; on «ادفع» the same button is pressed again and this time the payment goes through
+    if (cost > 0 && !this._payOK) { const el = this._lastTap;
+      this.askPay(tx('متأكد تبي تدفع؟', 'Pay now?'), (carbon ? '💎 ' + fmt(cost) : 'CR ' + fmt(cost)) + tx(' · يبقى لك ', ' · leaves you ') + (carbon ? '💎 ' + fmt(SAVE.carbon - cost) : 'CR ' + fmt(SAVE.cash - cost)),
+        () => { this._payOK = true; try { el && el.click(); } finally { this._payOK = false; } });
+      return false; }
+    this._payOK = false;
+    if (carbon) SAVE.carbon -= cost; else SAVE.cash -= cost;
     persist(); return true;
+  },
+  askPay(title, sub, yes, yesTxt, only) {
+    let o = document.getElementById('payAsk');
+    if (!o) { o = document.createElement('div'); o.id = 'payAsk'; o.className = 'ccConf payAsk'; document.body.appendChild(o); }
+    o.innerHTML = `<div class="panel"><div class="notch"></div><b></b><small></small><div class="ccBtns"><button class="btn y" data-a="y"></button><button class="btn o" data-a="n">${tx('لا، إلغاء', 'Cancel')}</button></div></div>`;
+    o.querySelector('b').textContent = title; o.querySelector('small').textContent = sub; o.querySelector('[data-a="y"]').textContent = yesTxt || tx('نعم، ادفع', 'Yes, pay');
+    if (only) o.querySelector('[data-a="n"]').remove(); else o.querySelector('[data-a="n"]').onclick = () => o.classList.remove('on');
+    o.classList.add('on');
+    o.querySelector('[data-a="y"]').onclick = () => { o.classList.remove('on'); yes(); };
   },
   // ================= سياراتي =================
   v_cars() {
@@ -14135,13 +14240,15 @@ const SCR = {
     const badge = id => { const sp = CARS[id];
       if (SAVE.car === id) return `<span class="bdg g">${tx('الحالي', 'CURRENT')}</span>`;
       if (SAVE.cars[id]) return `<span class="bdg w">${tx('مملوكة', 'OWNED')}</span>`;
+      if (CCW.CARS[id]) return `<span class="bdg y">${tx('من المحفظة', 'WALLET')}</span>`;
       if (sp.carbon && !sp.price) return `<span class="bdg o">${tx('بالكربون فقط', 'CARBON ONLY')}</span>`;
       if (sp.excl) return `<span class="bdg t">${tx('حصرية', 'EXCLUSIVE')}</span>`; return ''; };
-    const price = id => { const sp = CARS[id]; if (SAVE.cars[id]) return SAVE.car === id ? '<i class="sl3">///</i>' : `<b class="own">${tx('مملوكة', 'Owned')}</b>`; return sp.price ? `<b class="pr">CR ${fmt(sp.price)}</b>` : `<b class="pc">💎 ${sp.carbon}</b>`; };
+    const price = id => { const sp = CARS[id]; if (SAVE.cars[id]) return SAVE.car === id ? '<i class="sl3">///</i>' : `<b class="own">${tx('مملوكة', 'Owned')}</b>`; if (CCW.CARS[id]) return `<b class="pr sar">${CCW.ar(CCW.CARS[id])} ${tx('ريال', 'SAR')}</b>`; return sp.price ? `<b class="pr">CR ${fmt(sp.price)}</b>` : `<b class="pc">💎 ${sp.carbon}</b>`; };
     const card = id => { const sp = CARS[id], p = carPI(sp, carCfg(id)), [b, m] = brandOf(sp);
       return `<div class="ccard${id === sel ? ' sel' : ''}" data-c="${id}">${badge(id)}<div class="cimg">${thumb(id)}</div><div class="cbr">${b}</div><div class="cmd">${m}</div><div class="crow"><span class="pi ${carClass(p)}"><i>${carClass(p)}</i>${p}</span>${price(id)}</div></div>`; };
     let act;
     if (own) act = SAVE.car === sel ? `<button class="btn o" disabled>${tx('سيارتك الحالية', 'Current car')}</button>` : `<button class="btn y" id="cSel">${tx('اختيار', 'Select')}</button>`;
+    else if (CCW.CARS[sel]) act = `<button class="btn y" id="cBuyW">${tx('شراء', 'Buy')} · ${CCW.ar(CCW.CARS[sel])} ${tx('ريال من المحفظة', 'SAR (wallet)')}</button>`;
     else act = `${s.price ? `<button class="btn y" id="cBuy">${tx('شراء', 'Buy')} · CR ${fmt(s.price)}</button>` : ''}${s.carbon ? `<button class="btn ${s.price ? 'o' : 'y'}" id="cBuyC">💎 ${s.carbon}</button>` : ''}`;
     const hp = carHP(s, c), drive = s.drive[0] === 'fwd' ? tx('دفع أمامي', 'FWD') : (c.drive === 'awd' ? tx('دفع رباعي', 'AWD') : tx('دفع خلفي', 'RWD'));
     this.paint(this.top('car', tx('سياراتي', 'My cars')) + `
@@ -14160,6 +14267,10 @@ const SCR = {
     const cs = $('cSel'); if (cs) cs.onclick = () => { SAVE.car = sel; persist(); evictCars([sel]); this.re(); UI.toast(tx('تم اختيار ', 'Selected ') + s.name); };
     const cb = $('cBuy'); if (cb) cb.onclick = () => { if (!this.pay(s.price)) return; this.gotCar(sel); };
     const cc = $('cBuyC'); if (cc) cc.onclick = () => { if (!this.pay(s.carbon, true)) return; this.gotCar(sel); };
+    const cw = $('cBuyW'); if (cw) cw.onclick = () => { const p = CCW.CARS[sel], bal = CCW.load().balance;
+      if (bal < p) { UI.toast(tx('رصيد محفظتك ما يكفي: تحتاج ', 'Not enough in your wallet: you need ') + CCW.ar(p - bal) + tx(' ريال زيادة. اشحن من المتجر', ' SAR more. Top up in the store'), 4000); return; }
+      this.askPay(tx('متأكد تبي تدفع؟', 'Pay now?'), s.name + ' · ' + CCW.ar(p) + tx(' ريال من محفظتك، ويبقى لك ', ' SAR from your wallet, leaving ') + CCW.ar(bal - p) + ' ' + tx('ريال', 'SAR'),
+        () => { if (!CCW.spend(p, s.name)) return UI.toast(tx('رصيد محفظتك ما يكفي', 'Not enough in your wallet')); this.gotCar(sel); }); };
     const st = $('scr').querySelector('.ccard.sel'); if (st) st.scrollIntoView({ inline: 'center', block: 'nearest' });
   },
   gotCar(id) { SAVE.cars[id] = true; SAVE.car = id; if (Object.keys(SAVE.cars).length >= 2) SAVE.ach.a4 = true; persist(); evictCars([id]); this.re(); UI.toast(tx('مبروك! ', 'Congrats! ') + CARS[id].name); this.mprog('buy', 1); },
@@ -14792,17 +14903,37 @@ const SCR = {
   },
   // ================= المتجر =================
   v_store() {
-    const freeOk = SAVE.storeFree !== today();
-    const packs = [['20,000 CR', '+💎 10', '4.99', '11.99'], ['60,000 CR', '+💎 35', '19.99', '39.99'], ['150,000 CR', '+💎 100', '49.99', '99.99'], ['💎 300', tx('كربون', 'carbon'), '9.99', '19.99'], ['💎 1,000', tx('كربون', 'carbon'), '29.99', '59.99']];
+    const freeOk = SAVE.storeFree !== today(), w = CCW.load(), allCars = Object.keys(CARS), ownAll = allCars.every(id => SAVE.cars[id]);
+    const ar = n => Number(n).toLocaleString('ar-SA');
+    // paid from the RPMX wallet (the cc app): riyals in the wallet buy game money and the special items
+    const packs = CCW.PACKS.map(k => `<div class="scard panel ${k.vip ? 'vip' : ''}" data-ccp="${k.id}"><div class="notch"></div>${k.vip ? `<span class="fbadge vipb">${tx('مميز', 'VIP')}</span>` : ''}<div class="si">${k.vip ? ic('trophy') : k.carbon && !k.cash ? ic('diamond') : ic('store')}</div><b>${tx(k.n[0], k.n[1])}</b><small>${tx(k.d[0], k.d[1])}</small>
+      <button class="btn ${k.vip ? 'y' : 'o'} sm" data-ccb="${k.id}" ${k.cars && ownAll ? 'disabled' : ''}>${k.cars && ownAll ? tx('عندك كلها', 'Owned') : ar(k.p) + ' ' + tx('ريال', 'SAR')}</button></div>`).join('');
     this.paint(this.top('store', tx('المتجر', 'Store')) + `<div class="stgrid2">
+      <div class="scard wal panel"><div class="notch"></div><div class="walTop"><small>${tx('رصيد محفظتك', 'Your wallet')}</small><b id="ccBal">${ar(w.balance)} <i>${tx('ريال', 'SAR')}</i></b></div>
+        <div class="walRow"><input id="ccCode" inputmode="numeric" maxlength="7" placeholder="${tx('أدخل الكود', 'Enter code')}" autocomplete="off"><button class="btn y sm" id="ccGo">${tx('شحن', 'Top up')}</button></div><small class="walMsg" id="ccMsg">${tx('اشحن بكود المحفظة واشتري من المتجر', 'Top up with a wallet code')}</small></div>
       <div class="scard free panel"><div class="notch"></div><span class="fbadge">${t('free')}</span><div class="si">${ic('gift')}</div><b>+1,000 CR</b><small>${t('freeDaily')}</small><button class="btn y sm" id="sFree" ${freeOk ? '' : 'disabled'}>${freeOk ? t('claim') : t('claimed')}</button></div>
-      <div class="scard panel" data-go="cstore"><div class="notch"></div><div class="si">${ic('diamond')}</div><b>${tx('متجر الكربون', 'Carbon store')}</b><small>${tx('سيارات مقابل الكربون', 'Cars for carbon')}</small><span class="btn o sm">${tx('افتح', 'Open')}</span></div></div>
-      `);
+      <div class="scard panel" data-go="cstore"><div class="notch"></div><div class="si">${ic('diamond')}</div><b>${tx('متجر الكربون', 'Carbon store')}</b><small>${tx('سيارات مقابل الكربون', 'Cars for carbon')}</small><span class="btn o sm">${tx('افتح', 'Open')}</span></div>
+      ${packs}</div>
+`);
     const fg = $('sFree'); if (fg) fg.onclick = () => { SAVE.storeFree = today(); SAVE.cash += 1000; persist(); this.re(); };
-    $('scr').querySelectorAll('.buyp').forEach(b => b.onclick = () => UI.toast(t('payNote'), 3800));
+    const msg = (m, ok) => { const e = $('ccMsg'); if (e) { e.textContent = m; e.className = 'walMsg ' + (ok ? 'ok' : 'er'); } };
+    const go = async () => { const inp = $('ccCode'); const b = $('ccGo'); b.disabled = true; msg(tx('لحظة…', 'One moment…'), true);
+      const r = await CCW.redeem(inp.value); b.disabled = false;
+      if (r.ok) { inp.value = ''; $('ccBal').innerHTML = ar(CCW.load().balance) + ' <i>' + tx('ريال', 'SAR') + '</i>'; msg('✅ ' + tx('انضاف ', 'Added ') + ar(r.amount) + ' ' + tx('ريال', 'SAR'), true); UI.toast(tx('تم الشحن ', 'Topped up ') + ar(r.amount) + ' ' + tx('ريال', 'SAR')); }
+      else msg(r.err, false); };
+    $('ccGo').onclick = go; $('ccCode').onkeydown = e => { if (e.key === 'Enter') go(); };
+    $('scr').querySelectorAll('[data-ccb]').forEach(b => b.onclick = e => { e.stopPropagation(); const k = CCW.PACKS.find(x => x.id === b.dataset.ccb); if (!k) return;
+      const bal = CCW.load().balance;
+      if (bal < k.p) { msg(tx('رصيد محفظتك ما يكفي: تحتاج ', 'Not enough in your wallet: you need ') + ar(k.p - bal) + ' ' + tx('ريال زيادة', 'SAR more'), false); UI.toast(tx('رصيد محفظتك ما يكفي', 'Not enough in your wallet')); return; }
+      this.askPay(tx('متأكد تبي تدفع؟', 'Pay now?'), '«' + tx(k.n[0], k.n[1]) + '» · ' + ar(k.p) + tx(' ريال من محفظتك، ويبقى لك ', ' SAR from your wallet, leaving ') + ar(bal - k.p) + ' ' + tx('ريال', 'SAR'), () => {
+        if (!CCW.spend(k.p, tx(k.n[0], k.n[1]))) { msg(tx('رصيد محفظتك ما يكفي', 'Not enough in your wallet'), false); return; }
+        if (k.cash) SAVE.cash += k.cash; if (k.carbon) SAVE.carbon = (SAVE.carbon || 0) + k.carbon;
+        if (k.cars) { for (const id of allCars) SAVE.cars[id] = true; if (SAVE.ach) SAVE.ach.a4 = true; }
+        persist(); UI.refreshTop(); UI.toast(tx('مبروك! وصلك ', 'Done! You got ') + tx(k.n[0], k.n[1])); this.re(); });
+    });
   },
   v_cstore() {
-    const list = Object.values(CARS).filter(c => c.carbon);
+    const list = Object.values(CARS).filter(c => c.carbon && !CCW.CARS[c.id]);
     this.paint(this.top('diamond', tx('متجر الكربون', 'Carbon store')) + `<div class="cgrid">${list.map(c => { const p = carPI(c, carCfg(c.id)), [br, md] = brandOf(c);
       return `<div class="ccard big" data-cc="${c.id}"><div class="cimg">${thumb(c.id)}</div><div class="cbr">${br}</div><div class="cmd">${md}</div><div class="crow"><span class="pi ${carClass(p)}"><i>${carClass(p)}</i>${p}</span>${SAVE.cars[c.id] ? `<b class="own">${tx('مملوكة', 'Owned')}</b>` : `<button class="btn y sm" data-cb="${c.id}">💎 ${c.carbon}</button>`}</div></div>`; }).join('')}</div>`);
     $('scr').querySelectorAll('[data-cb]').forEach(b => b.onclick = e => { e.stopPropagation(); const id = b.dataset.cb; if (!this.pay(CARS[id].carbon, true)) return; this.gotCar(id); this.re(); });
@@ -14915,6 +15046,34 @@ SCR.open = function (k, opt) {
   const extra = { mapsel: 'wide', modes: 'wide', mods: 'kit', service: 'upg' };
   if (extra[k]) { if (this.cur && this.cur !== k) this.stack.push(this.cur); this.cur = k; this.opt = opt || {}; $('menu').classList.remove('on'); const L = $('scr'); L.classList.add('on'); L.dataset.k = k; Game.setGarageView(extra[k]); this.bindDrag(); this.re(); return; }
   return this.open0(k, opt);
+};
+
+// remember what was tapped, so a purchase can carry on by itself after «نعم، ادفع»
+document.addEventListener('click', e => { if (!e.target.closest || !e.target.closest('#payAsk')) SCR._lastTap = e.target; }, true);
+
+// ===== gifts from the developer: a small file «gifts.json» next to the game; a gift reaches the player whose name it carries, once =====
+const GIFTS = {
+  async check() {
+    if (this._busy) return; this._busy = true;
+    try {
+      const me = NameReg.low(SAVE.name); if (!me || SAVE.nameOwned !== me) return;   // only the real owner of the name
+      const r = await fetch('gifts.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return;
+      const d = await r.json(), list = Array.isArray(d) ? d : (d && d.gifts) || [];
+      SAVE.giftsGot = SAVE.giftsGot || {}; const got = [];
+      for (const g of list) {
+        if (!g || !g.id || SAVE.giftsGot[g.id] || NameReg.low(g.name) !== me) continue;
+        SAVE.giftsGot[g.id] = Date.now();
+        if (g.cash) SAVE.cash += Math.max(0, +g.cash || 0);
+        if (g.carbon) SAVE.carbon = (SAVE.carbon || 0) + Math.max(0, +g.carbon || 0);
+        if (g.cars) for (const id of (g.cars === 'all' ? Object.keys(CARS) : [].concat(g.cars))) if (CARS[id]) SAVE.cars[id] = true;
+        got.push(g);
+      }
+      if (!got.length) return;
+      persist(); UI.refreshTop();
+      const cash = got.reduce((a, g) => a + (+g.cash || 0), 0), carb = got.reduce((a, g) => a + (+g.carbon || 0), 0), note = got.map(g => g.note).filter(Boolean).join(' · ');
+      SCR.askPay(tx('🎁 وصلتك هدية من المطور!', '🎁 A gift from the developer!'), [cash ? 'CR ' + fmt(cash) : '', carb ? '💎 ' + fmt(carb) : '', got.some(g => g.cars) ? tx('سيارات جديدة', 'new cars') : '', note].filter(Boolean).join(' · '), () => { }, tx('تمام', 'OK'), true);
+    } catch (e) { } finally { this._busy = false; }
+  },
 };
 
 // ===== المتعة: build your own car from pieces, or add / remove pieces on the game's cars =====
@@ -15153,7 +15312,7 @@ Object.assign(SCR, {
   // version label on the main menu; tapping it pulls the newest game straight from the site
   function verTag() {
     var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
-    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٨ نوفمبر الساعة ١٢:٥٥ ص — اضغط للتحديث';
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٨ نوفمبر الساعة ١:٢٥ ص — اضغط للتحديث';
     b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
     document.body.appendChild(b);
     setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
