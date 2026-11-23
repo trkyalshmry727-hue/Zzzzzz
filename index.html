@@ -14119,7 +14119,34 @@ const CCW = {
     { id: 'cars', p: 1000, cars: true, vip: true, n: ['كل السيارات', 'Every car'], d: ['تفتح لك كل سيارات اللعبة مرة وحدة', 'Unlocks every car in the game'] },
     { id: 'king', p: 1000, cash: 10000000, carbon: 10000, vip: true, n: ['حزمة الملك', 'King pack'], d: ['١٠ مليون ريال لعبة + 💎١٠ آلاف', '10,000,000 CR + 💎10,000'] },
   ],
-  load() { try { const w = JSON.parse(localStorage.getItem(this.KEY)); if (w && typeof w.balance === 'number') return Object.assign({ used: [], log: [] }, w); } catch (e) { } return { balance: 0, used: [], log: [] }; },
+  load() { let w = null; try { w = JSON.parse(localStorage.getItem(this.KEY)); } catch (e) { }
+    if (!w || typeof w.balance !== 'number') w = { balance: 0, used: [], log: [], t: 0 };
+    w = Object.assign({ used: [], log: [], t: 0 }, w);
+    // the wallet belongs to your player name: if it holds another name, start yours (it is filled from the server by sync)
+    if (SAVE.name && (!w.player || NameReg.low(w.player) !== NameReg.low(SAVE.name))) { if (w.player && w.t && !this._po) { this._po = 1; this.push(w); } w = { player: SAVE.name, balance: 0, used: w.used, log: [], t: 0 }; }
+    return w; },
+  // ---- the balance lives online by player name (same relay servers as the rest of the game),
+  //      so the wallet site (Safari) and the game (home-screen icon) see the same riyals
+  T(n) { return 'cc/w/' + Relay.key(n); },
+  _sy: null, _at: 0,
+  sync(force) {
+    if (!SAVE.name) return Promise.resolve(false);
+    if (this._sy) return this._sy;
+    if (!force && Date.now() - this._at < 4000) return Promise.resolve(true);
+    this._sy = (async () => {
+      try { await Promise.race([Relay.connect(), new Promise((_, rej) => setTimeout(() => rej(new Error('to')), 8000))]); } catch (e) { return false; }
+      const all = await Relay.scan(this.T(SAVE.name), 1800); let best = null;
+      all.forEach(d => { if (d && typeof d.balance === 'number' && (!best || (d.t || 0) > (best.t || 0))) best = d; });
+      const w = this.load();
+      if (best && (best.t || 0) > (w.t || 0)) { w.balance = best.balance; w.log = Array.isArray(best.log) ? best.log : []; w.t = best.t; this.save(w); }
+      else { this.save(w); if ((w.t || 0) > ((best && best.t) || 0)) this.push(w); }
+      this._at = Date.now();
+      const b = $('ccBal'); if (b) b.innerHTML = this.ar(w.balance) + ' <i>' + tx('ريال', 'SAR') + '</i>';
+      return true;
+    })().catch(() => false).finally(() => { this._sy = null; });
+    return this._sy;
+  },
+  push(w) { if (!w || !w.player) return; Relay.connect().then(() => Relay.pub(this.T(w.player), { name: w.player, balance: w.balance, log: (w.log || []).slice(-40), t: w.t || Date.now() }, true)).catch(() => { }); },
   save(w) { try { localStorage.setItem(this.KEY, JSON.stringify(w)); } catch (e) { } },
   now() { try { return new Date().toLocaleString('ar-SA', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } },
   // the code list is read from the wallet app itself, so a code added there works here too (kept for when there is no internet)
@@ -14139,12 +14166,17 @@ const CCW = {
     if (!(window.crypto && crypto.subtle)) return { err: tx('جهازك ما يدعم الشحن هنا، اشحن من تطبيق المحفظة', 'Top up from the wallet app') };
     const h = await this.sha(this.SALT + c);
     if (!(h in H)) return { err: '❌ ' + tx('الكود غلط', 'Wrong code') };
-    const w = this.load(); if (w.used.includes(h)) return { err: '⚠️ ' + tx('هذا الكود مستخدم من قبل', 'This code was already used') };
-    w.balance += H[h]; w.used.push(h); w.log.push({ t: 'شحن كود', a: H[h], d: this.now() }); this.save(w);
+    if (this.load().used.includes(h)) return { err: '⚠️ ' + tx('هذا الكود مستخدم من قبل', 'This code was already used') };
+    const [ok, u] = await Promise.all([this.sync(true), Relay.scan('cc/u/' + h.slice(0, 24), 1500).catch(() => null)]);
+    if (!ok || !u) return { err: tx('تأكد إن النت شغال وجرب مرة ثانية', 'Check your internet and try again') };
+    const w = this.load();
+    if (u.length) { if (!w.used.includes(h)) { w.used.push(h); this.save(w); } return { err: '⚠️ ' + tx('هذا الكود مستخدم من قبل', 'This code was already used') }; }
+    w.balance += H[h]; w.used.push(h); w.log.push({ t: 'شحن كود', a: H[h], d: this.now() }); w.t = Date.now(); this.save(w);
+    this.push(w); Relay.pub('cc/u/' + h.slice(0, 24), { t: Date.now(), n: SAVE.name }, true);
     return { ok: true, amount: H[h] };
   },
   // you can only pay from a wallet account opened with your own player name
-  account() { return this.load().player || ''; },
+  account() { return this.load().player || SAVE.name || ''; },
   need() {
     const a = this.account();
     if (!a) return { t: tx('افتح حساب في تطبيق المحفظة', 'Open an account in the wallet app'), s: tx('عشان تشتري من اللعبة لازم يكون عندك حساب في المحفظة باسمك في اللعبة: ', 'To buy in the game you need a wallet account with your player name: ') + (SAVE.name || '') };
@@ -14153,8 +14185,11 @@ const CCW = {
   },
   // ask to open the wallet; it opens in the same page so it shares the game's storage, and its «ارجع للعبة» brings you back
   gate() { const n = this.need(); if (!n) return true; SCR.askPay(n.t, n.s, () => { location.href = '/cc/'; }, tx('افتح المحفظة', 'Open wallet')); return false; },
-  spend(price, what) { const w = this.load(); if (w.balance < price) return false; w.balance -= price; w.log.push({ t: 'شراء: ' + what + ' (RPMX)', a: -price, d: this.now() }); this.save(w); return true; },
+  spend(price, what) { const w = this.load(); if (w.balance < price) return false; w.balance -= price; w.log.push({ t: 'شراء: ' + what + ' (RPMX)', a: -price, d: this.now() }); w.t = Date.now(); this.save(w); this.push(w); return true; },
 };
+// keep the wallet balance fresh from the server
+setTimeout(() => { try { CCW.sync(); } catch (e) { } }, 4000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') try { CCW.sync(); } catch (e) { } });
 const IC = {
   back: '<path d="M15 5l-7 7 7 7M8 12h13"/>', camera: '<path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/>', car: '<path d="M3 15l2-6h14l2 6v4H3z"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/>',
   engine: '<path d="M5 9h3l1-2h5l1 2h3v9H5zM2 12h3M19 12h3M10 12l2-3 1 3h2l-3 4 1-3z"/>', intake: '<path d="M3 12h7M3 8h5M3 16h5"/><circle cx="16" cy="12" r="5"/><path d="M16 9v6M13 12h6"/>',
@@ -14189,6 +14224,7 @@ const SCR = {
     if (!map[k]) return;
     if (this.cur && this.cur !== k) this.stack.push(this.cur);
     this.cur = k; this.opt = opt || {};
+    if (k === 'store' || k === 'cars') try { CCW.sync(); } catch (e) { }
     $('menu').classList.remove('on'); const L = $('scr'); L.classList.add('on'); L.dataset.k = k;
     Game.setGarageView({ cars: 'cars', upg: 'upg', tune: 'tune', paint: 'paint', wheels: 'wheels', kit: 'kit', stickers: 'stickers', missions: 'missions', season: 'missions', ach: 'wide', lead: 'wide', profile: 'wide', social: 'wide', online: 'wide', store: 'wide', cstore: 'cars', wazn: 'wide', fun: 'wide' }[k]);
     this.bindDrag();
