@@ -804,6 +804,8 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 .ccConf.payAsk{position:fixed;z-index:400}
 .ccard .pr.sar{color:var(--y)}
 .bdg.y{background:var(--y);color:#111}
+.walAcc{direction:ltr;unicode-bidi:isolate;color:#fff;font-weight:800}
+.scard.wal #ccOpen{width:auto;align-self:flex-start;margin:0}
 </style>
 </head>
 <body>
@@ -14130,6 +14132,7 @@ const CCW = {
   },
   async sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); },
   async redeem(raw) {
+    const nd = this.need(); if (nd) return { err: nd.t };
     const c = String(raw || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, '');
     if (c.length !== 7) return { err: tx('الكود لازم يكون ٧ أرقام', 'The code must be 7 digits') };
     const H = await this.codes(); if (!H) return { err: tx('ما قدرت أوصل للأكواد، تأكد من النت وجرب مرة ثانية', 'Could not reach the codes, check your internet') };
@@ -14140,6 +14143,16 @@ const CCW = {
     w.balance += H[h]; w.used.push(h); w.log.push({ t: 'شحن كود', a: H[h], d: this.now() }); this.save(w);
     return { ok: true, amount: H[h] };
   },
+  // you can only pay from a wallet account opened with your own player name
+  account() { return this.load().player || ''; },
+  need() {
+    const a = this.account();
+    if (!a) return { t: tx('افتح حساب في تطبيق المحفظة', 'Open an account in the wallet app'), s: tx('عشان تشتري من اللعبة لازم يكون عندك حساب في المحفظة باسمك في اللعبة: ', 'To buy in the game you need a wallet account with your player name: ') + (SAVE.name || '') };
+    if (NameReg.low(a) !== NameReg.low(SAVE.name)) return { t: tx('حساب المحفظة مو باسمك', 'The wallet account is not yours'), s: tx('حساب المحفظة مسجل باسم «', 'The wallet account is “') + a + tx('» واسمك في اللعبة «', '” and your player name is “') + (SAVE.name || '') + tx('». غيّر الحساب في المحفظة لاسمك', '”. Change the account in the wallet') };
+    return null;
+  },
+  // ask to open the wallet; it opens in the same page so it shares the game's storage, and its «ارجع للعبة» brings you back
+  gate() { const n = this.need(); if (!n) return true; SCR.askPay(n.t, n.s, () => { location.href = '/cc/'; }, tx('افتح المحفظة', 'Open wallet')); return false; },
   spend(price, what) { const w = this.load(); if (w.balance < price) return false; w.balance -= price; w.log.push({ t: 'شراء: ' + what + ' (RPMX)', a: -price, d: this.now() }); this.save(w); return true; },
 };
 const IC = {
@@ -14267,7 +14280,7 @@ const SCR = {
     const cs = $('cSel'); if (cs) cs.onclick = () => { SAVE.car = sel; persist(); evictCars([sel]); this.re(); UI.toast(tx('تم اختيار ', 'Selected ') + s.name); };
     const cb = $('cBuy'); if (cb) cb.onclick = () => { if (!this.pay(s.price)) return; this.gotCar(sel); };
     const cc = $('cBuyC'); if (cc) cc.onclick = () => { if (!this.pay(s.carbon, true)) return; this.gotCar(sel); };
-    const cw = $('cBuyW'); if (cw) cw.onclick = () => { const p = CCW.CARS[sel], bal = CCW.load().balance;
+    const cw = $('cBuyW'); if (cw) cw.onclick = () => { if (!CCW.gate()) return; const p = CCW.CARS[sel], bal = CCW.load().balance;
       if (bal < p) { UI.toast(tx('رصيد محفظتك ما يكفي: تحتاج ', 'Not enough in your wallet: you need ') + CCW.ar(p - bal) + tx(' ريال زيادة. اشحن من المتجر', ' SAR more. Top up in the store'), 4000); return; }
       this.askPay(tx('متأكد تبي تدفع؟', 'Pay now?'), s.name + ' · ' + CCW.ar(p) + tx(' ريال من محفظتك، ويبقى لك ', ' SAR from your wallet, leaving ') + CCW.ar(bal - p) + ' ' + tx('ريال', 'SAR'),
         () => { if (!CCW.spend(p, s.name)) return UI.toast(tx('رصيد محفظتك ما يكفي', 'Not enough in your wallet')); this.gotCar(sel); }); };
@@ -14903,14 +14916,15 @@ const SCR = {
   },
   // ================= المتجر =================
   v_store() {
-    const freeOk = SAVE.storeFree !== today(), w = CCW.load(), allCars = Object.keys(CARS), ownAll = allCars.every(id => SAVE.cars[id]);
+    const freeOk = SAVE.storeFree !== today(), w = CCW.load(), allCars = Object.keys(CARS), ownAll = allCars.every(id => SAVE.cars[id]), acc = CCW.account(), need = CCW.need();
     const ar = n => Number(n).toLocaleString('ar-SA');
     // paid from the RPMX wallet (the cc app): riyals in the wallet buy game money and the special items
     const packs = CCW.PACKS.map(k => `<div class="scard panel ${k.vip ? 'vip' : ''}" data-ccp="${k.id}"><div class="notch"></div>${k.vip ? `<span class="fbadge vipb">${tx('مميز', 'VIP')}</span>` : ''}<div class="si">${k.vip ? ic('trophy') : k.carbon && !k.cash ? ic('diamond') : ic('store')}</div><b>${tx(k.n[0], k.n[1])}</b><small>${tx(k.d[0], k.d[1])}</small>
       <button class="btn ${k.vip ? 'y' : 'o'} sm" data-ccb="${k.id}" ${k.cars && ownAll ? 'disabled' : ''}>${k.cars && ownAll ? tx('عندك كلها', 'Owned') : ar(k.p) + ' ' + tx('ريال', 'SAR')}</button></div>`).join('');
     this.paint(this.top('store', tx('المتجر', 'Store')) + `<div class="stgrid2">
-      <div class="scard wal panel"><div class="notch"></div><div class="walTop"><small>${tx('رصيد محفظتك', 'Your wallet')}</small><b id="ccBal">${ar(w.balance)} <i>${tx('ريال', 'SAR')}</i></b></div>
-        <div class="walRow"><input id="ccCode" inputmode="numeric" maxlength="7" placeholder="${tx('أدخل الكود', 'Enter code')}" autocomplete="off"><button class="btn y sm" id="ccGo">${tx('شحن', 'Top up')}</button></div><small class="walMsg" id="ccMsg">${tx('اشحن بكود المحفظة واشتري من المتجر', 'Top up with a wallet code')}</small></div>
+      <div class="scard wal panel"><div class="notch"></div><div class="walTop"><small>${tx('رصيد محفظتك', 'Your wallet')}${acc ? ' · ' + tx('الحساب', 'account') + ' <span class="walAcc">' + acc.replace(/[<>&"]/g, '') + '</span>' : ''}</small><b id="ccBal">${ar(w.balance)} <i>${tx('ريال', 'SAR')}</i></b></div>
+        ${need ? `<small class="walMsg er">${need.t}. ${need.s}</small><button class="btn y sm" id="ccOpen">${tx('افتح المحفظة', 'Open wallet')}</button>`
+        : `<div class="walRow"><input id="ccCode" inputmode="numeric" maxlength="7" placeholder="${tx('أدخل الكود', 'Enter code')}" autocomplete="off"><button class="btn y sm" id="ccGo">${tx('شحن', 'Top up')}</button></div><small class="walMsg" id="ccMsg">${tx('اشحن بكود المحفظة واشتري من المتجر', 'Top up with a wallet code')}</small>`}</div>
       <div class="scard free panel"><div class="notch"></div><span class="fbadge">${t('free')}</span><div class="si">${ic('gift')}</div><b>+1,000 CR</b><small>${t('freeDaily')}</small><button class="btn y sm" id="sFree" ${freeOk ? '' : 'disabled'}>${freeOk ? t('claim') : t('claimed')}</button></div>
       <div class="scard panel" data-go="cstore"><div class="notch"></div><div class="si">${ic('diamond')}</div><b>${tx('متجر الكربون', 'Carbon store')}</b><small>${tx('سيارات مقابل الكربون', 'Cars for carbon')}</small><span class="btn o sm">${tx('افتح', 'Open')}</span></div>
       ${packs}</div>
@@ -14921,8 +14935,10 @@ const SCR = {
       const r = await CCW.redeem(inp.value); b.disabled = false;
       if (r.ok) { inp.value = ''; $('ccBal').innerHTML = ar(CCW.load().balance) + ' <i>' + tx('ريال', 'SAR') + '</i>'; msg('✅ ' + tx('انضاف ', 'Added ') + ar(r.amount) + ' ' + tx('ريال', 'SAR'), true); UI.toast(tx('تم الشحن ', 'Topped up ') + ar(r.amount) + ' ' + tx('ريال', 'SAR')); }
       else msg(r.err, false); };
-    $('ccGo').onclick = go; $('ccCode').onkeydown = e => { if (e.key === 'Enter') go(); };
+    if ($('ccGo')) { $('ccGo').onclick = go; $('ccCode').onkeydown = e => { if (e.key === 'Enter') go(); }; }
+    if ($('ccOpen')) $('ccOpen').onclick = () => { location.href = '/cc/'; };
     $('scr').querySelectorAll('[data-ccb]').forEach(b => b.onclick = e => { e.stopPropagation(); const k = CCW.PACKS.find(x => x.id === b.dataset.ccb); if (!k) return;
+      if (!CCW.gate()) return;
       const bal = CCW.load().balance;
       if (bal < k.p) { msg(tx('رصيد محفظتك ما يكفي: تحتاج ', 'Not enough in your wallet: you need ') + ar(k.p - bal) + ' ' + tx('ريال زيادة', 'SAR more'), false); UI.toast(tx('رصيد محفظتك ما يكفي', 'Not enough in your wallet')); return; }
       this.askPay(tx('متأكد تبي تدفع؟', 'Pay now?'), '«' + tx(k.n[0], k.n[1]) + '» · ' + ar(k.p) + tx(' ريال من محفظتك، ويبقى لك ', ' SAR from your wallet, leaving ') + ar(bal - k.p) + ' ' + tx('ريال', 'SAR'), () => {
@@ -15312,7 +15328,7 @@ Object.assign(SCR, {
   // version label on the main menu; tapping it pulls the newest game straight from the site
   function verTag() {
     var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
-    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ١٨ نوفمبر الساعة ١:٢٥ ص — اضغط للتحديث';
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ٢٣ نوفمبر الساعة ٨:٠٠ م — اضغط للتحديث';
     b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
     document.body.appendChild(b);
     setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
