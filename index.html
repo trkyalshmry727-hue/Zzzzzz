@@ -14141,6 +14141,8 @@ const CCW = {
       if (best && (best.t || 0) > (w.t || 0)) { w.balance = best.balance; w.log = Array.isArray(best.log) ? best.log : []; w.t = best.t; this.save(w); }
       else { this.save(w); if ((w.t || 0) > ((best && best.t) || 0)) this.push(w); }
       this._at = Date.now();
+      // let the wallet site know this player name exists in the game
+      if (this._reg !== NameReg.low(SAVE.name)) { this._reg = NameReg.low(SAVE.name); Relay.pub('cc/p/' + Relay.key(SAVE.name), { name: SAVE.name, t: Date.now() }, true); }
       const b = $('ccBal'); if (b) b.innerHTML = this.ar(w.balance) + ' <i>' + tx('ريال', 'SAR') + '</i>';
       return true;
     })().catch(() => false).finally(() => { this._sy = null; });
