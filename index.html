@@ -14171,6 +14171,16 @@ const CCW = {
         const lw = this.load(), src = (lw.t && (!best || lw.t > (best.t || 0))) ? lw.balance : (best ? best.balance : 0);
         if (src) { const b = { id: 'base', n, a: src, t: 'رصيد سابق', d: '', ts: 1 }; ev.base = b; Relay.pub(this.evTop(n, 'base'), b, true); }
       }
+      // first time on this device with the new wallet: a purchase made with the old version (that never reached
+      // the server) is still in this device's old wallet → add it once, so the balance is right everywhere
+      if (!Object.keys(old).length) {
+        const lw = this.load(), last = (lw.log || []).slice(-1)[0];
+        const tot = Object.values(ev).reduce((s, e) => s + (e.a || 0), 0);
+        if (lw.t && Object.keys(ev).length && !Object.keys(ev).some(id => id !== 'base') && lw.balance < tot && last && last.a < 0) {
+          const id = 'adj' + lw.t, e = { id, n, a: lw.balance - tot, t: last.t || 'شراء سابق', d: last.d || '', ts: lw.t };
+          ev[id] = e; Relay.pub(this.evTop(n, id), e, true);
+        }
+      }
       // notes that did not reach the server yet: send them again
       const keep = []; this.pend().forEach(e => { if (NameReg.low(e.n) !== NameReg.low(n)) { keep.push(e); return; } if (!all.some(x => x && x.id === e.id)) { ev[e.id] = e; keep.push(e); Relay.pub(this.evTop(n, e.id), e, true); } });
       this.setPend(keep);
@@ -14997,7 +15007,7 @@ const SCR = {
     const packs = CCW.PACKS.map(k => `<div class="scard panel ${k.vip ? 'vip' : ''}" data-ccp="${k.id}"><div class="notch"></div>${k.vip ? `<span class="fbadge vipb">${tx('مميز', 'VIP')}</span>` : ''}<div class="si">${k.vip ? ic('trophy') : k.carbon && !k.cash ? ic('diamond') : ic('store')}</div><b>${tx(k.n[0], k.n[1])}</b><small>${tx(k.d[0], k.d[1])}</small>
       <button class="btn ${k.vip ? 'y' : 'o'} sm" data-ccb="${k.id}" ${k.cars && ownAll ? 'disabled' : ''}>${k.cars && ownAll ? tx('عندك كلها', 'Owned') : ar(k.p) + ' ' + tx('ريال', 'SAR')}</button></div>`).join('');
     this.paint(this.top('store', tx('المتجر', 'Store')) + `<div class="stgrid2">
-      <div class="scard wal panel"><div class="notch"></div><div class="walTop"><small>${tx('رصيد محفظتك', 'Your wallet')}${acc ? ' · ' + tx('الحساب', 'account') + ' <span class="walAcc">' + acc.replace(/[<>&"]/g, '') + '</span>' : ''}</small><b id="ccBal">${ar(w.balance)} <i>${tx('ريال', 'SAR')}</i></b></div>
+      <div class="scard wal panel"><div class="notch"></div><div class="walTop"><small>${tx('رصيد محفظتك', 'Your wallet')} <b style="opacity:.45;font-weight:400">(${tx('محفظة إصدار ٣', 'wallet v3')})</b>${acc ? ' · ' + tx('الحساب', 'account') + ' <span class="walAcc">' + acc.replace(/[<>&"]/g, '') + '</span>' : ''}</small><b id="ccBal">${ar(w.balance)} <i>${tx('ريال', 'SAR')}</i></b></div>
         ${need ? `<small class="walMsg er">${need.t}. ${need.s}</small><button class="btn y sm" id="ccOpen">${tx('افتح المحفظة', 'Open wallet')}</button>`
         : `<div class="walRow"><input id="ccCode" inputmode="numeric" maxlength="7" placeholder="${tx('أدخل الكود', 'Enter code')}" autocomplete="off"><button class="btn y sm" id="ccGo">${tx('شحن', 'Top up')}</button></div><small class="walMsg" id="ccMsg">${tx('اشحن بكود المحفظة واشتري من المتجر', 'Top up with a wallet code')}</small>`}</div>
       <div class="scard free panel"><div class="notch"></div><span class="fbadge">${t('free')}</span><div class="si">${ic('gift')}</div><b>+1,000 CR</b><small>${t('freeDaily')}</small><button class="btn y sm" id="sFree" ${freeOk ? '' : 'disabled'}>${freeOk ? t('claim') : t('claimed')}</button></div>
