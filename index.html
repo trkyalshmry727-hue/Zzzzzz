@@ -9438,7 +9438,7 @@ function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
 // ===== persistent save (device only) =====
 const SAVE_KEY = 'hajwala_rpm_v1';
 // Google sign-in: paste the web client ID from Google Cloud here (empty = button shows 'coming soon')
-const GOOGLE_ID = '';
+const GOOGLE_ID = '1007833675998-b2tbm71gi34ajqlu81n8kbb84lm79l00.apps.googleusercontent.com';
 // Sign in with Apple: the Services ID made in the Apple developer account, and the game's web address as the return address
 const APPLE_ID = '', APPLE_REDIRECT = '';
 const DEFAULT_SAVE = () => ({
@@ -15626,7 +15626,7 @@ Object.assign(SCR, {
   // version label on the main menu; tapping it pulls the newest game straight from the site
   function verTag() {
     var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
-    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ٢٤ نوفمبر الساعة ٢:٣٥ ص — اضغط للتحديث';
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ٢٤ نوفمبر الساعة ٣:٣١ ص — اضغط للتحديث';
     b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
     document.body.appendChild(b);
     setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
