@@ -14397,7 +14397,10 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&am
 // ================= محفظة RPMX (تطبيق cc) =================
 // the cc wallet app lives on the same site (/cc/), so it shares this storage: same key, same format, same log
 const CCW = {
-  KEY: 'cc_wallet', SALT: 'cc-rpmx-2026', H: null,
+  KEY: 'cc_wallet', SALT: 'cc-rpmx-2026', H: null, REV: {},
+  // a code that was switched back on gets a new 'used' key, so it can be used one more time
+  uk(h) { return this.REV[h] ? h + 'r' + this.REV[h] : h; },
+  uTop(k) { return 'cc/u/' + k.slice(0, 24) + k.slice(64); },
   CARS: { rub: 1000, shas06: 700, gmcold: 500, camry24: 300 },   // cars sold only for wallet riyals
   ar(n) { return Number(n).toLocaleString('ar-SA'); },
   PACKS: [
@@ -14410,15 +14413,90 @@ const CCW = {
     { id: 'cars', p: 1000, cars: true, vip: true, n: ['كل السيارات', 'Every car'], d: ['تفتح لك كل سيارات اللعبة مرة وحدة', 'Unlocks every car in the game'] },
     { id: 'king', p: 1000, cash: 10000000, carbon: 10000, vip: true, n: ['حزمة الملك', 'King pack'], d: ['١٠ مليون ريال لعبة + 💎١٠ آلاف', '10,000,000 CR + 💎10,000'] },
   ],
-  load() { try { const w = JSON.parse(localStorage.getItem(this.KEY)); if (w && typeof w.balance === 'number') return Object.assign({ used: [], log: [] }, w); } catch (e) { } return { balance: 0, used: [], log: [] }; },
+  load() { let w = null; try { w = JSON.parse(localStorage.getItem(this.KEY)); } catch (e) { }
+    if (!w || typeof w.balance !== 'number') w = { balance: 0, used: [], log: [], t: 0 };
+    w = Object.assign({ used: [], log: [], t: 0 }, w);
+    // the wallet belongs to your player name: if it holds another name, start yours (it is filled from the server by sync)
+    if (SAVE.name && (!w.player || NameReg.low(w.player) !== NameReg.low(SAVE.name))) w = { player: SAVE.name, balance: 0, used: w.used, log: [], t: 0 };
+    return w; },
+  // ---- the balance lives online by player name (same relay servers as the rest of the game), so the wallet
+  //      site (Safari) and the game (home-screen icon) see the same riyals. Every top-up and every purchase is
+  //      its own lasting note (cc/e/<name>/<id>); the balance is their sum, so nothing overwrites anything,
+  //      and a note that did not reach the server (dead connection after the app was in the background) is sent again.
+  evTop(n, id) { return 'cc/e/' + Relay.key(n) + '/' + id; },
+  cache(n) { try { const c = JSON.parse(localStorage.getItem('cc_ev')) || {}; return c[NameReg.low(n)] || {}; } catch (e) { return {}; } },
+  setCache(n, ev) { try { const c = JSON.parse(localStorage.getItem('cc_ev')) || {}; c[NameReg.low(n)] = ev; localStorage.setItem('cc_ev', JSON.stringify(c)); } catch (e) { } },
+  pend() { try { const p = JSON.parse(localStorage.getItem('cc_pend')); return Array.isArray(p) ? p : []; } catch (e) { return []; } },
+  setPend(p) { try { localStorage.setItem('cc_pend', JSON.stringify(p)); } catch (e) { } },
+  apply(n, ev) {
+    const L = Object.values(ev).filter(e => e && typeof e.a === 'number').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const w = this.load(); if (NameReg.low(w.player) !== NameReg.low(n)) return;
+    w.balance = L.reduce((s, e) => s + e.a, 0); w.log = L.slice(-60).map(e => ({ t: e.t, a: e.a, d: e.d || '' })); w.t = Date.now(); this.save(w); this.setCache(n, ev);
+    const b = $('ccBal'); if (b) b.innerHTML = this.ar(w.balance) + ' <i>' + tx('ريال', 'SAR') + '</i>';
+  },
+  addEv(n, a, t) {
+    const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), n, a, t, d: this.now(), ts: Date.now() };
+    this.setPend(this.pend().concat([e]));
+    const ev = this.cache(n); ev[e.id] = e; this.apply(n, ev);
+    Relay.connect().then(() => Relay.pub(this.evTop(n, e.id), e, true)).catch(() => { });
+    setTimeout(() => this.sync(true), 2500);   // check it reached the server (send again if not)
+    return e;
+  },
+  reconcile(n, ev) {
+    const lw = this.load(); if (NameReg.low(lw.player) !== NameReg.low(n)) return;
+    const sig = x => (x.t || '') + '|' + (x.d || '') + '|' + x.a;
+    const known = new Set(Object.values(ev).map(sig));
+    (lw.log || []).forEach(x => {
+      if (!x || !(x.a < 0)) return; const g = sig(x); if (known.has(g)) return;
+      let h = 0; for (const c of g) h = (h * 31 + c.charCodeAt(0)) | 0;
+      const id = 'og' + (h >>> 0).toString(36); if (ev[id]) return;
+      const e = { id, n, a: x.a, t: x.t, d: x.d || '', ts: lw.t || Date.now() }; ev[id] = e; known.add(g);
+      Relay.pub(this.evTop(n, id), e, true);
+    });
+  },
+  _sy: null, _at: 0,
+  sync(force) {
+    if (!SAVE.name) return Promise.resolve(false);
+    if (this._sy) return this._sy;
+    if (!force && Date.now() - this._at < 4000) return Promise.resolve(true);
+    const job = (async () => {
+      const n = SAVE.name;
+      try { await Promise.race([Relay.connect(), new Promise((_, rej) => setTimeout(() => rej(new Error('to')), 8000))]); } catch (e) { return false; }
+      const all = await Relay.scan(this.evTop(n, '+'), 2000); if (NameReg.low(SAVE.name) !== NameReg.low(n)) return false;
+      const old = this.cache(n);
+      // nothing came back although we know notes exist: the connection is probably dead (iPhone after the background) → reconnect next time
+      if (!all.length && Object.keys(old).length && !Relay.room) { try { Relay.ws && Relay.ws.close(); } catch (e) { } }
+      const ev = Object.assign({}, old); all.forEach(e => { if (e && e.id && typeof e.a === 'number') ev[e.id] = e; });
+      // first time: carry over the balance from before (one total for the name)
+      if (!Object.keys(ev).length && !Object.keys(this.cache(n)).length) {
+        const o = await Relay.scan('cc/w/' + Relay.key(n), 1200); let best = null;
+        o.forEach(d => { if (d && typeof d.balance === 'number' && (!best || (d.t || 0) > (best.t || 0))) best = d; });
+        const lw = this.load(), src = (lw.t && (!best || lw.t > (best.t || 0))) ? lw.balance : (best ? best.balance : 0);
+        if (src) { const b = { id: 'base', n, a: src, t: 'رصيد سابق', d: '', ts: 1 }; ev.base = b; Relay.pub(this.evTop(n, 'base'), b, true); }
+      }
+      // purchases an older game version wrote only on this phone (they never reached the server): send them now
+      this.reconcile(n, ev);
+      // notes that did not reach the server yet: send them again
+      const keep = []; this.pend().forEach(e => { if (NameReg.low(e.n) !== NameReg.low(n)) { keep.push(e); return; } if (!all.some(x => x && x.id === e.id)) { ev[e.id] = e; keep.push(e); Relay.pub(this.evTop(n, e.id), e, true); } });
+      this.setPend(keep);
+      this.apply(n, ev);
+      this._at = Date.now();
+      // let the wallet site know this player name exists in the game
+      if (this._reg !== NameReg.low(n)) { this._reg = NameReg.low(n); Relay.pub('cc/p/' + Relay.key(n), { name: n, t: Date.now() }, true); }
+      return true;
+    })();
+    this._sy = Promise.race([job, new Promise(r => setTimeout(() => r(false), 15000))]).catch(() => false).finally(() => { this._sy = null; });
+    return this._sy;
+  },
   save(w) { try { localStorage.setItem(this.KEY, JSON.stringify(w)); } catch (e) { } },
   now() { try { return new Date().toLocaleString('ar-SA', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } },
   // the code list is read from the wallet app itself, so a code added there works here too (kept for when there is no internet)
   async codes() {
     if (this.H) return this.H;
     try { const r = await fetch('/cc/?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) { const s = await r.text(), m = s.match(/const H=(\{[^}]*\})/), sm = s.match(/SALT="([^"]+)"/);
-      if (m) { this.H = JSON.parse(m[1]); if (sm) this.SALT = sm[1]; try { localStorage.setItem('cc_codes_cache', JSON.stringify({ H: this.H, S: this.SALT })); } catch (e) { } return this.H; } } } catch (e) { }
-    try { const c = JSON.parse(localStorage.getItem('cc_codes_cache')); if (c && c.H) { this.H = c.H; this.SALT = c.S || this.SALT; return this.H; } } catch (e) { }
+      if (m) { this.H = JSON.parse(m[1]); if (sm) this.SALT = sm[1]; const rv = s.match(/const REV=(\{[^}]*\})/); try { this.REV = rv ? JSON.parse(rv[1]) : {}; } catch (e) { this.REV = {}; }
+        try { localStorage.setItem('cc_codes_cache', JSON.stringify({ H: this.H, S: this.SALT, R: this.REV })); } catch (e) { } return this.H; } } } catch (e) { }
+    try { const c = JSON.parse(localStorage.getItem('cc_codes_cache')); if (c && c.H) { this.H = c.H; this.SALT = c.S || this.SALT; this.REV = c.R || {}; return this.H; } } catch (e) { }
     return null;
   },
   async sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); },
@@ -14430,12 +14508,18 @@ const CCW = {
     if (!(window.crypto && crypto.subtle)) return { err: tx('جهازك ما يدعم الشحن هنا، اشحن من تطبيق المحفظة', 'Top up from the wallet app') };
     const h = await this.sha(this.SALT + c);
     if (!(h in H)) return { err: '❌ ' + tx('الكود غلط', 'Wrong code') };
-    const w = this.load(); if (w.used.includes(h)) return { err: '⚠️ ' + tx('هذا الكود مستخدم من قبل', 'This code was already used') };
-    w.balance += H[h]; w.used.push(h); w.log.push({ t: 'شحن كود', a: H[h], d: this.now() }); this.save(w);
+    const k = this.uk(h);
+    if (this.load().used.includes(k)) return { err: '⚠️ ' + tx('هذا الكود مستخدم من قبل', 'This code was already used') };
+    const [ok, u] = await Promise.all([this.sync(true), Relay.scan(this.uTop(k), 1500).catch(() => null)]);
+    if (!ok || !u) return { err: tx('تأكد إن النت شغال وجرب مرة ثانية', 'Check your internet and try again') };
+    const w = this.load();
+    if (u.length) { if (!w.used.includes(k)) { w.used.push(k); this.save(w); } return { err: '⚠️ ' + tx('هذا الكود مستخدم من قبل', 'This code was already used') }; }
+    w.used.push(k); this.save(w);
+    this.addEv(SAVE.name, H[h], 'شحن كود'); Relay.pub(this.uTop(k), { t: Date.now(), n: SAVE.name }, true);
     return { ok: true, amount: H[h] };
   },
   // you can only pay from a wallet account opened with your own player name
-  account() { return this.load().player || ''; },
+  account() { return this.load().player || SAVE.name || ''; },
   need() {
     const a = this.account();
     if (!a) return { t: tx('افتح حساب في تطبيق المحفظة', 'Open an account in the wallet app'), s: tx('عشان تشتري من اللعبة لازم يكون عندك حساب في المحفظة باسمك في اللعبة: ', 'To buy in the game you need a wallet account with your player name: ') + (SAVE.name || '') };
@@ -14443,6 +14527,8 @@ const CCW = {
     return null;
   },
   // ask to open the wallet; it opens in the same page so it shares the game's storage, and its «ارجع للعبة» brings you back
+  gate() { const n = this.need(); if (!n) return true; SCR.askPay(n.t, n.s, () => { location.href = '/cc/'; }, tx('افتح المحفظة', 'Open wallet')); return false; },
+  spend(price, what) { const w = this.load(); if (w.balance < price) return false; this.addEv(SAVE.name, -price, 'شراء: ' + what + ' (RPMX)'); return true; },
   // «لحظة»: look at the wallet app's account, then let you buy or ask you to open an account
   check(go) {
     let o = document.getElementById('payAsk');
@@ -14451,9 +14537,11 @@ const CCW = {
     o.classList.add('on');
     setTimeout(() => { o.classList.remove('on'); if (this.gate()) go(); }, 1100);
   },
-  gate() { const n = this.need(); if (!n) return true; SCR.askPay(n.t, n.s, () => { location.href = '/cc/'; }, tx('افتح المحفظة', 'Open wallet')); return false; },
-  spend(price, what) { const w = this.load(); if (w.balance < price) return false; w.balance -= price; w.log.push({ t: 'شراء: ' + what + ' (RPMX)', a: -price, d: this.now() }); this.save(w); return true; },
 };
+// keep the wallet balance fresh from the server
+setTimeout(() => { try { CCW.sync(); } catch (e) { } }, 4000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') try { CCW.sync(true); } catch (e) { } });
+setInterval(() => { try { if (CCW.pend().length) CCW.sync(true); } catch (e) { } }, 20000);
 const IC = {
   back: '<path d="M15 5l-7 7 7 7M8 12h13"/>', camera: '<path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/>', car: '<path d="M3 15l2-6h14l2 6v4H3z"/><circle cx="7" cy="17" r="1.6"/><circle cx="17" cy="17" r="1.6"/>',
   engine: '<path d="M5 9h3l1-2h5l1 2h3v9H5zM2 12h3M19 12h3M10 12l2-3 1 3h2l-3 4 1-3z"/>', intake: '<path d="M3 12h7M3 8h5M3 16h5"/><circle cx="16" cy="12" r="5"/><path d="M16 9v6M13 12h6"/>',
@@ -14488,6 +14576,7 @@ const SCR = {
     if (!map[k]) return;
     if (this.cur && this.cur !== k) this.stack.push(this.cur);
     this.cur = k; this.opt = opt || {};
+    if (k === 'store' || k === 'cars') try { CCW.sync(); } catch (e) { }
     $('menu').classList.remove('on'); const L = $('scr'); L.classList.add('on'); L.dataset.k = k;
     Game.setGarageView({ cars: 'cars', upg: 'upg', tune: 'tune', paint: 'paint', wheels: 'wheels', kit: 'kit', stickers: 'stickers', missions: 'missions', season: 'missions', ach: 'wide', lead: 'wide', profile: 'wide', social: 'wide', online: 'wide', store: 'wide', cstore: 'cars', wazn: 'wide', fun: 'wide' }[k]);
     this.bindDrag();
@@ -15223,7 +15312,7 @@ const SCR = {
     const packs = CCW.PACKS.map(k => `<div class="scard panel ${k.vip ? 'vip' : ''}" data-ccp="${k.id}"><div class="notch"></div>${k.vip ? `<span class="fbadge vipb">${tx('مميز', 'VIP')}</span>` : ''}<div class="si">${k.vip ? ic('trophy') : k.carbon && !k.cash ? ic('diamond') : ic('store')}</div><b>${tx(k.n[0], k.n[1])}</b><small>${tx(k.d[0], k.d[1])}</small>
       <button class="btn ${k.vip ? 'y' : 'o'} sm" data-ccb="${k.id}" ${k.cars && ownAll ? 'disabled' : ''}>${k.cars && ownAll ? tx('عندك كلها', 'Owned') : ar(k.p) + ' ' + tx('ريال', 'SAR')}</button></div>`).join('');
     this.paint(this.top('store', tx('المتجر', 'Store')) + `<div class="stgrid2">
-      <div class="scard wal panel"><div class="notch"></div><div class="walTop"><small>${tx('رصيد محفظتك', 'Your wallet')}${acc ? ' · ' + tx('الحساب', 'account') + ' <span class="walAcc">' + acc.replace(/[<>&"]/g, '') + '</span>' : ''}</small><b id="ccBal">${ar(w.balance)} <i>${tx('ريال', 'SAR')}</i></b></div>
+      <div class="scard wal panel"><div class="notch"></div><div class="walTop"><small>${tx('رصيد محفظتك', 'Your wallet')} <b style="opacity:.45;font-weight:400">(${tx('محفظة إصدار ٤', 'wallet v4')})</b>${acc ? ' · ' + tx('الحساب', 'account') + ' <span class="walAcc">' + acc.replace(/[<>&"]/g, '') + '</span>' : ''}</small><b id="ccBal">${ar(w.balance)} <i>${tx('ريال', 'SAR')}</i></b></div>
         ${need ? `<small class="walMsg er">${need.t}. ${need.s}</small><button class="btn y sm" id="ccOpen">${tx('افتح المحفظة', 'Open wallet')}</button>`
         : `<small class="walMsg ok" id="ccMsg">${tx('حسابك مربوط بالمحفظة، اختر اللي تبيه واشتري', 'Your wallet is linked — pick something and buy')}</small>`}</div>
       <div class="scard free panel"><div class="notch"></div><span class="fbadge">${t('free')}</span><div class="si">${ic('gift')}</div><b>+1,000 CR</b><small>${t('freeDaily')}</small><button class="btn y sm" id="sFree" ${freeOk ? '' : 'disabled'}>${freeOk ? t('claim') : t('claimed')}</button></div>
