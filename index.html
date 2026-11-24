@@ -780,7 +780,7 @@ input,textarea,select{font-size:16px !important}   /* iPhone zooms the page into
 #perfBox{top:calc(15.6*var(--s))}
 
 /* removed by request: Google/Apple sign-in, real-money offers, the fun menu */
-#gBtn,#appleBtn,.orl,#offerCard,#funBtn,#flash{display:none!important}
+#appleBtn,#offerCard,#funBtn,#flash{display:none!important}
 .frow{display:flex;align-items:center;gap:calc(1.4*var(--s));background:rgba(12,12,14,.9);border:1px solid var(--line2);padding:calc(1.1*var(--s)) calc(1.8*var(--s));margin-bottom:calc(.8*var(--s));position:relative}
 .frow::after{content:"";position:absolute;left:0;bottom:0;width:22%;height:2px;background:linear-gradient(90deg,var(--red) 0 70%,var(--teal) 70%)}
 .frow b{font:800 calc(2*var(--s))/1.2 var(--fa);color:#fff}.frow small{font:600 calc(1.5*var(--s))/1.2 var(--fa);color:var(--mut)}.frow .sp{flex:1}
@@ -15059,7 +15059,7 @@ const SCR = {
     const ownIds = Object.keys(SAVE.cars);
     this.paint(this.top('user', tx('الملف', 'Profile')) + `<div class="pleft">
       <div class="pcard2 panel"><div class="notch"></div><div class="pav">${esc(nm[0] || 'V')}</div><div><b>${esc(nm)}</b><span class="bdg r">${lv >= 25 ? tx('أسطورة الشوارع', 'Street legend') : lv >= 10 ? tx('متسابق شوارع', 'Street racer') : tx('مبتدئ', 'Rookie')}</span><small>${esc(em)}</small><small>${tx('سائق منذ', 'Driver since')} ${since.toLocaleDateString(LANG === 'ar' ? 'ar-SA' : 'en-GB', { month: 'long', year: 'numeric' })}</small></div>
-        <div class="prow"><button class="btn o sm" id="pfRen">${ic('edit')} ${tx('تعديل الاسم', 'Edit name')}</button><button class="btn o sm" id="pfOut">${ic('out')} ${tx('تسجيل الخروج', 'Log out')}</button></div><div class="brk"></div></div>
+        <div class="prow"><button class="btn o sm" id="pfRen">${ic('edit')} ${tx('تعديل الاسم', 'Edit name')}</button>${!SAVE.account || SAVE.account.guest ? `<button class="btn y sm" id="pfG">G ${tx('سجّل بقوقل', 'Sign in with Google')}</button><button class="btn o sm" id="pfE">${tx('سجّل بالإيميل', 'Sign up with email')}</button>` : `<button class="btn o sm" id="pfOut">${ic('out')} ${tx('تسجيل الخروج', 'Log out')}</button>`}</div>${!SAVE.account || SAVE.account.guest ? `<small style="display:block;margin-top:calc(.8*var(--s));color:var(--mut);font:600 calc(1.5*var(--s))/1.4 var(--fa)">${tx('أنت تلعب كضيف: سجّل عشان ما يروح تقدمك وتقدر تدخل من أي جوال', 'You are a guest: sign in so your progress is kept on any phone')}</small>` : ''}<div class="brk"></div></div>
       <div class="mlv panel"><div class="notch"></div><div class="hexb">${lv}</div><div><small>${tx('مستوى اللاعب', 'Player level')}</small><b>${tx('المستوى', 'Level')} ${lv}</b><em>${fmt(xp - a)} / ${fmt(b - a)}</em><div class="pb y"><i style="width:${(xp - a) / (b - a) * 100}%"></i></div></div></div>
       <div class="mlv panel"><div class="notch"></div><div class="hexb t">${mech.lv}</div><div><small>${tx('مستوى الميكانيكي', 'Mechanic level')}</small><b>${tx('المستوى', 'Level')} ${mech.lv}</b><em>${fmt(mech.xp)} / ${fmt(mech.next)}</em><div class="pb"><i style="width:${mech.pct}%"></i></div></div></div>
       <div class="ptype panel"><div class="notch"></div><small>${tx('نقاط الدرفت حسب النمط', 'Points by style')}</small><div class="pbar">${Object.entries(byType).map(([k, v], i) => `<i style="width:${v / tot * 100}%;background:${['#2fd6b8', '#37e07a', '#e2384d', '#f3e40c'][i]}"></i>`).join('')}</div>
@@ -15070,7 +15070,9 @@ const SCR = {
       <small>${tx('الإنجازات', 'Achievements')} · ${A.filter(x => x.got).length} / ${A.length} ${tx('وسام', 'badges')}</small><div class="pbadges">${A.slice(0, 8).map(x => `<span class="${x.got ? 'on' : ''}">${ic(x.got ? 'trophy' : 'lock')}</span>`).join('')}</div></div>
       <div class="pbtns"><button class="btn o" data-go="missions">${tx('المهام', 'Missions')}</button><span class="sp"></span><button class="btn o" data-go="ach">${tx('الإنجازات', 'Achievements')}</button></div>`);
     $('pfRen').onclick = () => UI.nameDialog(() => { if (Net.ok) Net.req('rename', { name: SAVE.name }).catch(() => { }); this.re(); });
-    $('pfOut').onclick = async () => { if (SAVE.acc) await ACC.push(true); SAVE.account = null; SAVE.acc = null; persist(); $('scr').classList.remove('on'); this.cur = null; Game.mode = 'boot'; UI.authStep(); };
+    if ($('pfG')) $('pfG').onclick = () => GOOG.start();
+    if ($('pfE')) $('pfE').onclick = () => UI.emailDialog('signup');
+    if ($('pfOut')) $('pfOut').onclick = async () => { if (SAVE.acc) await ACC.push(true); SAVE.account = null; SAVE.acc = null; persist(); $('scr').classList.remove('on'); this.cur = null; Game.mode = 'boot'; UI.authStep(); };
   },
   // ================= اجتماعي =================
   async v_social() {
@@ -15626,7 +15628,7 @@ Object.assign(SCR, {
   // version label on the main menu; tapping it pulls the newest game straight from the site
   function verTag() {
     var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
-    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ٢٤ نوفمبر الساعة ٣:٣١ ص — اضغط للتحديث';
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ٢٤ نوفمبر الساعة ٣:٥٦ ص — اضغط للتحديث';
     b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
     document.body.appendChild(b);
     setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
