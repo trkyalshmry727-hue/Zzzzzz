@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
+<meta name="rpmx-build" content="20261125164652">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16138,10 +16139,34 @@ Object.assign(SCR, {
   var h = location.hostname; if (location.protocol !== 'https:' && h !== 'localhost' && h !== '127.0.0.1') return;
   // a newer version of the game came down while the saved one was opening: refresh as soon as the player is on the main menu (never mid-drive)
   var pending = false;
+  // drop the saved copy and open the newest game straight from the site
+  function fresh() {
+    var go = function () { location.replace(location.pathname + '?u=' + Date.now()); };
+    (window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('rpmx-shell') === 0; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve())
+      .then(function () { return navigator.serviceWorker.getRegistration(); }).then(function (r) { return r && r.update(); }).catch(function () { }).then(go, go);
+  }
   function tryRefresh() {
     if (!pending) return; var m = document.getElementById('menu');
-    if (m && m.classList.contains('on') && !(window.Game && Game.mode === 'drive')) { pending = false; try { UI.toast('تحديث جديد للعبة…', 1500); } catch (e) { } setTimeout(function () { location.reload(); }, 900); }
+    if (m && m.classList.contains('on') && !(window.Game && Game.mode === 'drive')) { pending = false; try { UI.toast('تحديث جديد للعبة…', 1500); } catch (e) { } setTimeout(fresh, 900); }
   }
+  // the game asks the site by itself whether a newer version was uploaded: when it opens, when it comes back on screen, and every two minutes
+  var MY = '20261125164652', busy = false, lastChk = 0;
+  function check() {
+    if (busy || pending || Date.now() - lastChk < 20000 || document.hidden) return; busy = true; lastChk = Date.now();
+    fetch(location.pathname + '?chk=' + Date.now(), { cache: 'no-cache' }).then(function (r) {
+      if (!r.ok || !r.body) return r.ok ? r.text() : '';
+      // only the start of the page is needed (the version mark sits at the top)
+      var rd = r.body.getReader(), dec = new TextDecoder(), txt = '';
+      function step() { return rd.read().then(function (x) { if (x.value) txt += dec.decode(x.value, { stream: true }); if (x.done || txt.length > 8000) { try { rd.cancel(); } catch (e) { } return txt; } return step(); }); }
+      return step();
+    }).then(function (t) {
+      var m = /name="rpmx-build" content="([^"]+)"/.exec(t || '');
+      if (m && m[1] > MY) { pending = true; tryRefresh(); }
+    }).catch(function () { }).then(function () { busy = false; });
+  }
+  setTimeout(check, 4000); setInterval(check, 120000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { lastChk = 0; setTimeout(check, 800); } });
+  window.addEventListener('pageshow', function () { lastChk = 0; setTimeout(check, 800); });
   navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.t === 'rpmx-new') { pending = true; tryRefresh(); } });
   setInterval(tryRefresh, 1500);
   // also look for the marker the helper leaves on the phone, in case its message came before the page was listening
@@ -16153,16 +16178,11 @@ Object.assign(SCR, {
   // version label on the main menu; tapping it pulls the newest game straight from the site
   function verTag() {
     var m = document.getElementById('menu'); if (!m) return setTimeout(verTag, 500);
-    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ٢٥ نوفمبر الساعة ٤:٢٧ ص — اضغط للتحديث';
+    var b = document.createElement('div'); b.id = 'verTag'; b.textContent = 'إصدار ٢٥ نوفمبر الساعة ٤:٤٦ م';
     b.style.cssText = 'position:fixed;left:10px;bottom:6px;z-index:40;direction:rtl;font:600 11px/1.2 Changa,system-ui,sans-serif;color:rgba(255,255,255,.55);background:rgba(0,0,0,.35);padding:4px 8px;border-radius:6px';
     document.body.appendChild(b);
     setInterval(function () { b.style.display = m.classList.contains('on') ? '' : 'none'; }, 500);
-    b.onclick = function () {
-      b.textContent = 'جاري التحديث…';
-      var go = function () { location.replace(location.pathname + '?u=' + Date.now()); };
-      (window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('rpmx-shell') === 0; }).map(function (k) { return caches.delete(k); })); }) : Promise.resolve())
-        .then(function () { return navigator.serviceWorker.getRegistration(); }).then(function (r) { return r && r.update(); }).catch(function () { }).then(go, go);
-    };
+    b.onclick = function () { b.textContent = 'جاري التحديث…'; fresh(); };
   }
   verTag();
   navigator.serviceWorker.register('sw.js').then(function () { try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { } }).catch(function () { });
